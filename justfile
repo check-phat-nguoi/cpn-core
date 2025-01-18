@@ -9,8 +9,8 @@ restore-env:
 restore-dev-env:
   [ -d '.venv' ] || (uv sync --all-groups --frozen && uv run pre-commit install)
 
-bump-version:
-  cz bump
+bump-version: restore-dev-env
+  uv run cz bump
 
 clean: restore-dev-env
   uvx cleanpy@0.5.1 .
