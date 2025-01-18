@@ -45,4 +45,3 @@ repos:
     rev: 0.5.14
     hooks:
       - id: uv-sync
-      - id: uv-lock # update lock file

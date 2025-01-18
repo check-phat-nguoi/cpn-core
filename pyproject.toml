@@ -20,6 +20,3 @@ ocr = ["pytesseract>=0.3.13"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[dependency-groups]
-dev = ["commitizen>=4.1.0", "git-cliff>=2.7.0", "pre-commit>=4.0.1"]
