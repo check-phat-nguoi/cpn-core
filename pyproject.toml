@@ -5,7 +5,7 @@ authors = [
 ]
 description = "cpn core"
 name = "cpn-core"
-version = "0.0.0-dev"
+version = "0.1.0-dev.2"
 requires-python = ">=3.13"
 dependencies = [
   "aiohttp[speedups]>=3.11.11",
@@ -13,11 +13,13 @@ dependencies = [
   "pydantic>=2.10.4",
 ]
 
+[project.optional-dependencies]
+discord = ["audioop-lts>=0.2.1", "discord-py>=2.4.0"]
+ocr = ["pytesseract>=0.3.13"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = ["pre-commit>=4.0.1"]
-discord = ["audioop-lts>=0.2.1", "discord-py>=2.4.0"]
-ocr = ["pytesseract>=0.3.13"]
