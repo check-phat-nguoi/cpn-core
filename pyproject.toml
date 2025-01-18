@@ -5,7 +5,7 @@ authors = [
 ]
 description = "cpn core"
 name = "cpn-core"
-version = "0.2.0"
+version = "0.3.0"
 requires-python = ">=3.13"
 dependencies = [
   "aiohttp[speedups]>=3.11.11",
