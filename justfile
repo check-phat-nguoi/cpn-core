@@ -1,3 +1,4 @@
+alias v := bump-version
 alias p := precommit-run-all
 alias re := restore-env
 alias rde := restore-dev-env
@@ -7,6 +8,9 @@ restore-env:
 
 restore-dev-env:
   [ -d '.venv' ] || (uv sync --all-groups --frozen && uv run pre-commit install)
+
+bump-version:
+  cz bump
 
 clean: restore-dev-env
   uvx cleanpy@0.5.1 .
