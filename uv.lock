@@ -212,8 +212,8 @@ wheels = [
 ]
 
 [[package]]
-name = "check-phat-nguoi"
-version = "0.1.0.dev2"
+name = "cpn-core"
+version = "0.0.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp", extra = ["speedups"] },
