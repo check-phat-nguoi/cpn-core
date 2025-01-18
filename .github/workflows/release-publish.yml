@@ -37,8 +37,8 @@ jobs:
         with:
           tag_name: ${{ github.event.release.tag_name || github.ref_name }}
           body: ${{ steps.git-cliff.outputs.content }}
-          prerelease: ${{ github.event.release.tag == '' }}
-          make_latest: ${{ github.event.release.tag != '' }}
+          prerelease: ${{ github.event.release.tag != '' }}
+          make_latest: ${{ github.event.release.tag == '' }}
 
   publish-pypi:
     name: Publish to Pypi
