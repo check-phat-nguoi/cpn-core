@@ -2,15 +2,15 @@ alias v := bump-version
 alias r := restore-env
 
 restore-env:
-  [ -d '.venv' ] || uv sync --all-extras --no-dev --frozen
+  [ -d '.venv' ] || uv sync --all-extras --all-groups
 
-bump-version: restore-env
-  uv run cz bump --no-verify
-  uv run pre-commit run -a
+bump-version:
+  cz bump --no-verify
+  pre-commit run -a
   git commit --amend --no-edit
 
-clean: restore-env
+clean:
   uvx cleanpy@0.5.1 .
 
-precommit-run-all: restore-env
-  uv run pre-commit run -a
+precommit-run-all:
+  pre-commit run -a
