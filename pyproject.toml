@@ -5,7 +5,7 @@ authors = [
 ]
 description = "cpn core"
 name = "cpn-core"
-version = "0.1.0-dev.2"
+version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
   "aiohttp[speedups]>=3.11.11",
@@ -22,4 +22,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
-dev = ["pre-commit>=4.0.1"]
+dev = ["commitizen>=4.1.0", "git-cliff>=2.7.0", "pre-commit>=4.0.1"]
