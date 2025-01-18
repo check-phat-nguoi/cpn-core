@@ -1,0 +1,7 @@
+unsafe-fixes = true
+
+[lint]
+extend-select = [
+  "I",    # Isort
+  "F401", # Unused imports
+]

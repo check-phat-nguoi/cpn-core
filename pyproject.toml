@@ -1,0 +1,23 @@
+[project]
+authors = [
+  { name = "KevinNitroG", email = "kevinnitro@duck.com" },
+  { name = "NTGNguyen", email = 'ntgnguyen@duck.com' },
+]
+description = "cpn core"
+name = "cpn-core"
+version = "0.0.0-dev"
+requires-python = ">=3.13"
+dependencies = [
+  "aiohttp[speedups]>=3.11.11",
+  "beautifulsoup4>=4.12.3",
+  "pydantic>=2.10.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pre-commit>=4.0.1"]
+discord = ["audioop-lts>=0.2.1", "discord-py>=2.4.0"]
+ocr = ["pytesseract>=0.3.13"]
