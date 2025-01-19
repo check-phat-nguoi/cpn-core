@@ -5,7 +5,7 @@ alias p := precommit-run-all
 restore-env:
   [ -d '.venv' ] || uv sync --all-extras --all-groups
 
-bump-verison:
+bump-version:
   uv run cz bump
 
 clean:
