@@ -1,7 +1,8 @@
+from datetime import datetime
 from logging import getLogger
 from typing import Final, Literal, LiteralString, TypedDict, cast, override
 
-from curl_cffi import requests
+from curl_cffi import CurlError, requests
 
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
@@ -17,8 +18,25 @@ API_URL = "https://etraffic.gtelict.vn/api/citizen/v2/property/deferred/fines"
 RESPONSE_DATETIME_FORMAT: LiteralString = "%H:%M, %d/%m/%Y"
 
 
-# TODO: Handle after because out of request
-class _DataPlateInfoResponse(TypedDict): ...
+class _DataPlateInfoResponse(TypedDict):
+    violationId: str | None
+    licensePlate: str
+    licensePlateType: str
+    vehicleType: Literal[
+        "Ô tô", "Xe máy", "Xe máy điện"
+    ]  # FIX: This return "Ô tô con" instead of "Ô tô"
+    vehicleTypeText: Literal["Ô tô", "Xe máy", "Xe máy điện"]
+    violationType: str | None
+    violationTypeText: str
+    violationAt: str
+    violationAtText: str
+    violationAddress: str
+    handlingAddress: str
+    propertyName: str
+    statusType: Literal["Đã xử phạt", "Chưa xử phạt"]
+    statusTypeText: Literal["Đã xử phạt", "Chưa xử phạt"]
+    departmentName: str
+    contactPhone: str
 
 
 class _FoundResponse(TypedDict):
@@ -54,15 +72,25 @@ class _EtrafficGetDataParseEngine:
         self._violations_details_set = set()
 
     def _parse_violation(self, data: _DataPlateInfoResponse) -> None:
-        plate: str
-        date: str
-        type: Literal["Ô tô", "Xe máy", "Xe máy điện"]
-        color: str
-        location: str
-        status: str
-        enforcement_unit: str
-        resolution_offices: tuple[str, ...]
-        violation_detail: ViolationDetail = ViolationDetail()
+        plate: str = data["licensePlate"]
+        date: str = data["violationAt"]
+        type: Literal["Ô tô", "Xe máy", "Xe máy điện"] = data["vehicleType"]
+        color: str = data["licensePlateType"]
+        location: str = data["handlingAddress"]
+        status: str = data["statusType"]
+        enforcement_unit: str = data["propertyName"]
+        resolution_offices: tuple[str, ...] = tuple(data["departmentName"])
+        violation_detail: ViolationDetail = ViolationDetail(
+            plate=plate,
+            color=color,
+            type=get_vehicle_enum(type),
+            date=datetime.strptime(str(date), RESPONSE_DATETIME_FORMAT),
+            location=location,
+            status=status == "Đã xử phạt",
+            enforcement_unit=enforcement_unit,
+            resolution_offices=resolution_offices,
+            violation=None,
+        )
         self._violations_details_set.add(violation_detail)
 
     def parse(self) -> tuple[ViolationDetail, ...] | None:
@@ -83,7 +111,7 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
         self._password = password
         self._time_out = time_out
 
-    def _request_token(self) -> str | None:
+    def _request_token(self, plate_info: PlateInfo) -> str | None:
         data: Final[dict[str, str]] = {
             "citizenIndentify": self._citizen_indetify,
             "password": self._password,
@@ -98,13 +126,16 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
             )
             data_dict = response.json()
             return data_dict["value"]["refreshToken"]
+        except CurlError as e:
+            logger.error(
+                f"Error occurs while getting token for plate {plate_info.plate} in API {API_TOKEN_URL}: {e}"
+            )
         except Exception as e:
-            # TODO: Handle exception later
-            print(e)
+            logger.error(f"Error occurs:{e}")
 
     def _request(self, plate_info: PlateInfo) -> dict | None:
         headers: Final[dict[str, str]] = {
-            "Authorization": f"Bearer {self._request_token()}",
+            "Authorization": f"Bearer {self._request_token(plate_info)}",
             "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
         }
         params: Final[dict[str, str]] = {
@@ -114,8 +145,12 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
         try:
             response = requests.get(url=API_URL, headers=headers, params=params)
             return response.json()
+        except CurlError as e:
+            logger.error(
+                f"Error occurs while getting data for plate {plate_info.plate} in API {API_TOKEN_URL}: {e}"
+            )
         except Exception as e:
-            print(e)
+            logger.error(f"Error occurs:{e}")
 
     @override
     async def get_data(
