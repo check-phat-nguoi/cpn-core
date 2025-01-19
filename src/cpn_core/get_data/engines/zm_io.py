@@ -85,7 +85,7 @@ class _ZMIOGetDataParseEngine:
 class ZMIOGetDataEngine(BaseGetDataEngine):
     api = ApiEnum.zm_io_vn
 
-    def __init__(self, *, timeout: float) -> None:
+    def __init__(self, *, timeout: float = 20) -> None:
         self._timeout: float = timeout
         self._session: ClientSession = ClientSession(
             timeout=ClientTimeout(timeout),

@@ -11,6 +11,7 @@ dependencies = [
   "aiohttp[speedups]>=3.11.11",
   "beautifulsoup4>=4.12.3",
   "pydantic>=2.10.4",
+  "tenacity>=9.0.0",
 ]
 
 [project.optional-dependencies]

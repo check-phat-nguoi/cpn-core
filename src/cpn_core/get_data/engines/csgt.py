@@ -10,6 +10,12 @@ from aiohttp import ClientError, ClientSession, ClientTimeout
 from bs4 import BeautifulSoup, NavigableString, Tag
 from PIL import Image
 from pytesseract import image_to_string
+from tenacity import (
+    AsyncRetrying,
+    RetryError,
+    retry_if_exception_type,
+    stop_after_attempt,
+)
 
 from cpn_core.get_data.engines.base import BaseGetDataEngine
 from cpn_core.models.plate_info import PlateInfo
@@ -34,14 +40,18 @@ SSL_CONTEXT: Final[SSLContext] = ssl_create_context()
 SSL_CONTEXT.set_ciphers("DEFAULT@SECLEVEL=1")
 
 
+class ResolveCaptchaFail(Exception): ...
+
+
 class _GetDataCsgtCoreEngine:
     api: ApiEnum = ApiEnum.csgt_vn
 
-    def __init__(self, plate_info: PlateInfo, *, timeout: float) -> None:
+    def __init__(self, plate_info: PlateInfo, *, timeout: float, retry_captcha) -> None:
         self._plate_info: PlateInfo = plate_info
         self._vehicle_type: VehicleTypeEnum = get_vehicle_enum(self._plate_info.type)
         self._violations_details_set: set[ViolationDetail] = set()
         self._timeout: float = timeout
+        self._retry_captcha: int = retry_captcha
         self._session: ClientSession = ClientSession(timeout=ClientTimeout(timeout))
 
     @staticmethod
@@ -229,24 +239,35 @@ class _GetDataCsgtCoreEngine:
 
     async def get_data(self) -> tuple[ViolationDetail, ...] | None:
         try:
-            phpsessid, captcha_img = await self._get_phpsessid_and_captcha()
-            captcha: str = self._bypass_captcha(captcha_img)
-            logger.debug(f"Plate {self._plate_info.plate} captcha resolved: {captcha}")
-            logger.debug(
-                f"Plate {self._plate_info.plate}: Sending request again to get check..."
-            )
-            html_data: str = await self._get_html_check(captcha, phpsessid)
-            if html_data.strip() == "404":
-                logger.error(f"Plate {self._plate_info.plate}: Wrong captcha")
-                return
-            logger.debug(
-                f"Plate {self._plate_info.plate}: Sending request again to get data..."
-            )
-            plate_data: str = await self._get_plate_data()
-            violations: tuple[ViolationDetail, ...] | None = self._parse_html(
-                plate_data
-            )
-            return violations
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(self._retry_captcha),
+                retry=retry_if_exception_type(ResolveCaptchaFail),
+                before=lambda _: logger.info(
+                    f"Plate {self._plate_info.plate}: Retrying because of failing to resolve captcha..."
+                ),
+            ):
+                with attempt:
+                    print("Yes retrying enabled")
+                    phpsessid, captcha_img = await self._get_phpsessid_and_captcha()
+                    captcha: str = self._bypass_captcha(captcha_img)
+                    logger.debug(
+                        f"Plate {self._plate_info.plate} captcha resolved: {captcha}"
+                    )
+                    logger.debug(
+                        f"Plate {self._plate_info.plate}: Sending request again to get check..."
+                    )
+                    html_data: str = await self._get_html_check(captcha, phpsessid)
+                    if html_data.strip() == "404":
+                        logger.error(f"Plate {self._plate_info.plate}: Wrong captcha")
+                        raise ResolveCaptchaFail()
+                    logger.debug(
+                        f"Plate {self._plate_info.plate}: Sending request again to get data..."
+                    )
+                    plate_data: str = await self._get_plate_data()
+                    violations: tuple[ViolationDetail, ...] | None = self._parse_html(
+                        plate_data
+                    )
+                    return violations
         except TimeoutError as e:
             logger.error(
                 f"Plate {self._plate_info.plate}: Time out ({self._timeout}s) getting data from API {self.api.value}. {e}"
@@ -254,6 +275,10 @@ class _GetDataCsgtCoreEngine:
         except ClientError as e:
             logger.error(
                 f"Plate {self._plate_info.plate}: Error occurs while getting data from API {self.api.value}. {e}"
+            )
+        except RetryError as e:
+            logger.error(
+                f"Plate {self._plate_info.plate}: Cannot get data after {self._retry_captcha} time(s) with {self.api.value}. {e}"
             )
         except Exception as e:
             logger.error(
@@ -268,8 +293,9 @@ class _GetDataCsgtCoreEngine:
 
 
 class CsgtGetDataEngine(BaseGetDataEngine):
-    def __init__(self, *, timeout: float) -> None:
+    def __init__(self, *, timeout: float = 20, retry_captcha: int = 3) -> None:
         self._timeout: float = timeout
+        self._retry_captcha: int = retry_captcha
         super().__init__()
 
     @override
@@ -277,6 +303,8 @@ class CsgtGetDataEngine(BaseGetDataEngine):
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
         async with _GetDataCsgtCoreEngine(
-            plate_info, timeout=self._timeout
+            plate_info,
+            timeout=self._timeout,
+            retry_captcha=self._retry_captcha,
         ) as local_engine:
             return await local_engine.get_data()
