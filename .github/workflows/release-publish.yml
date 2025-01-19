@@ -34,10 +34,10 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name || 'nightly' }}
+          tag_name: ${{ startsWith(github.ref, 'v' ) && github.ref || 'nightly' }}
           body: ${{ steps.git-cliff.outputs.content }}
-          prerelease: ${{ github.event.release.tag != '' }}
-          make_latest: ${{ github.event.release.tag == '' }}
+          prerelease: ${{ startsWith(github.ref, 'v' ) }}
+          make_latest: ${{ startsWith(github.ref, 'v' ) }}
 
       # - name: Upload artifact
       #   uses: actions/upload-artifact@v4
