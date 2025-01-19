@@ -1,5 +1,6 @@
 alias v := bump-version
 alias r := restore-env
+alias p := precommit-run-all
 
 restore-env:
   [ -d '.venv' ] || uv sync --all-extras --all-groups
