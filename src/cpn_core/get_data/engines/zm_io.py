@@ -87,12 +87,15 @@ class ZMIOGetDataEngine(BaseGetDataEngine):
 
     def __init__(self, *, timeout: float = 20) -> None:
         self._timeout: float = timeout
-        self._session: ClientSession = ClientSession(
-            timeout=ClientTimeout(timeout),
-        )
+        self._session_: ClientSession | None = None
 
-    async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        await self._session.close()
+    @property
+    def _session(self) -> ClientSession:
+        if self._session_ is None:
+            self._session_ = ClientSession(
+                timeout=ClientTimeout(self._timeout),
+            )
+        return self._session_
 
     async def _request(self, plate_info: PlateInfo) -> dict | None:
         url: str = API_URL.format(
@@ -135,3 +138,7 @@ class ZMIOGetDataEngine(BaseGetDataEngine):
             plate_info=plate_info, data=plate_detail_typed["data"]["json"]
         ).parse()
         return violation_details
+
+    async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
+        if self._session_ is not None:
+            await self._session_.close()

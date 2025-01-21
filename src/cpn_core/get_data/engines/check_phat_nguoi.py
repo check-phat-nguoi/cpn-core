@@ -2,7 +2,15 @@ import json
 from asyncio import TimeoutError
 from datetime import datetime
 from logging import getLogger
-from typing import Final, Literal, LiteralString, TypeAlias, TypedDict, cast, override
+from typing import (
+    Final,
+    Literal,
+    LiteralString,
+    TypeAlias,
+    TypedDict,
+    cast,
+    override,
+)
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
@@ -121,11 +129,22 @@ class CheckPhatNguoiGetDataEngine(BaseGetDataEngine):
 
     def __init__(self, *, timeout: float = 20) -> None:
         self._timeout: float = timeout
-        self._session: ClientSession = ClientSession(
-            timeout=ClientTimeout(timeout),
-        )
+        self._session_: ClientSession | None = None
+
+    @property
+    def _session(self) -> ClientSession:
+        if self._session_ is None:
+            self._session_ = ClientSession(
+                timeout=ClientTimeout(self._timeout),
+            )
+        return self._session_
 
     async def _request(self, plate_info: PlateInfo) -> dict | None:
+        if self._session is None:
+            logger.error(
+                f"Plate {plate_info.plate} - API {self.api.value}: Session hasn't been created"
+            )
+            return
         payload: Final[dict[str, str]] = {"bienso": plate_info.plate}
         try:
             async with self._session.post(
@@ -165,4 +184,5 @@ class CheckPhatNguoiGetDataEngine(BaseGetDataEngine):
         return violations
 
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        await self._session.close()
+        if self._session_ is not None:
+            await self._session_.close()

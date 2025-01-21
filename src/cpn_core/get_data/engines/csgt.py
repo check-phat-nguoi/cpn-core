@@ -52,7 +52,15 @@ class _GetDataCsgtCoreEngine:
         self._violations_details_set: set[ViolationDetail] = set()
         self._timeout: float = timeout
         self._retry_captcha: int = retry_captcha
-        self._session: ClientSession = ClientSession(timeout=ClientTimeout(timeout))
+        self._session_: ClientSession | None = None
+
+    @property
+    def _session(self) -> ClientSession:
+        if self._session_ is None:
+            self._session_ = ClientSession(
+                timeout=ClientTimeout(self._timeout),
+            )
+        return self._session_
 
     @staticmethod
     def _bypass_captcha(captcha_img: bytes) -> str:
@@ -289,7 +297,8 @@ class _GetDataCsgtCoreEngine:
         return self
 
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        await self._session.close()
+        if self._session_ is not None:
+            await self._session_.close()
 
 
 class CsgtGetDataEngine(BaseGetDataEngine):

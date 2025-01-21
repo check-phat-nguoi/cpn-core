@@ -70,7 +70,7 @@ class _DiscordNotificationCoreEngine:
 
     async def send(self) -> None:
         @self._client.event
-        async def on_ready() -> None:  # pyright: ignore[reportUnusedFunction]
+        async def on_ready() -> None:  # pyright: ignore [reportUnusedFunction]
             match self.discord.chat_type:
                 case "user":
                     await self._send_user()

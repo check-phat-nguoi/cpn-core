@@ -166,9 +166,15 @@ class PhatNguoiGetDataEngine(BaseGetDataEngine):
 
     def __init__(self, *, timeout: float = 20) -> None:
         self._timeout: float = timeout
-        self._session: ClientSession = ClientSession(
-            timeout=ClientTimeout(timeout),
-        )
+        self._session_: ClientSession | None = None
+
+    @property
+    def _session(self) -> ClientSession:
+        if self._session_ is None:
+            self._session_ = ClientSession(
+                timeout=ClientTimeout(self._timeout),
+            )
+        return self._session_
 
     async def _request(self, plate_info: PlateInfo) -> str | None:
         url: str = f"{API_URL}/{plate_info.plate}/{get_vehicle_enum(plate_info.type)}"
@@ -203,4 +209,5 @@ class PhatNguoiGetDataEngine(BaseGetDataEngine):
         return violations
 
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        await self._session.close()
+        if self._session_ is not None:
+            await self._session_.close()
