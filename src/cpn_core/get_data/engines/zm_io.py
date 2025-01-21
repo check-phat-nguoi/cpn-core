@@ -1,16 +1,13 @@
-from asyncio import TimeoutError
 from datetime import datetime
 from logging import getLogger
-from typing import Literal, LiteralString, TypedDict, cast, override
-
-from aiohttp import ClientError, ClientSession
-from aiohttp.client import ClientTimeout
+from typing import Literal, LiteralString, Self, TypedDict, cast, override
 
 from cpn_core.get_data.engines.base import BaseGetDataEngine
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
 from cpn_core.types.vehicle_type import get_vehicle_enum
+from cpn_core.utils.request_session_helper import RequestSessionHelper
 
 logger = getLogger(__name__)
 
@@ -43,7 +40,7 @@ class _Response(TypedDict):
     error: bool
 
 
-class _ZMIOGetDataParseEngine:
+class _ZmioParseEngine:
     def __init__(
         self,
         plate_info: PlateInfo,
@@ -51,7 +48,7 @@ class _ZMIOGetDataParseEngine:
     ) -> None:
         self._plate_info: PlateInfo = plate_info
         self._data: tuple[_DataPlateInfoResponse, ...] = data
-        self._violations_details_set: set[ViolationDetail] = set()
+        self._violation_details_set: set[ViolationDetail] = set()
 
     def _parse_violation(self, data: _DataPlateInfoResponse) -> None:
         plate: str = data["bienkiemsoat"]
@@ -74,52 +71,33 @@ class _ZMIOGetDataParseEngine:
             resolution_offices=resolution_offices,
             violation=None,
         )
-        self._violations_details_set.add(violation_detail)
+        self._violation_details_set.add(violation_detail)
 
     def parse(self) -> tuple[ViolationDetail, ...] | None:
         for violations in self._data:
             self._parse_violation(violations)
-        return tuple(self._violations_details_set)
+        return tuple(self._violation_details_set)
 
 
-class ZMIOGetDataEngine(BaseGetDataEngine):
-    api = ApiEnum.zm_io_vn
+class ZmioEngine(BaseGetDataEngine, RequestSessionHelper):
+    @property
+    def api(self) -> ApiEnum:
+        return ApiEnum.zm_io_vn
 
     def __init__(self, *, timeout: float = 20) -> None:
-        self._timeout: float = timeout
-        self._session_: ClientSession | None = None
-
-    @property
-    def _session(self) -> ClientSession:
-        if self._session_ is None:
-            self._session_ = ClientSession(
-                timeout=ClientTimeout(self._timeout),
-            )
-        return self._session_
+        BaseGetDataEngine.__init__(self, timeout=timeout)
+        RequestSessionHelper.__init__(self, timeout=timeout)
 
     async def _request(self, plate_info: PlateInfo) -> dict | None:
         url: str = API_URL.format(
             plate=plate_info.plate, type=get_vehicle_enum(plate_info.type)
         )
-        try:
-            async with self._session.get(url) as response:
-                json: dict = await response.json()
-                return json
-        except TimeoutError as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Time out ({self._timeout}s) getting data from API {self.api.value}. {e}"
-            )
-        except ClientError as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Error occurs while getting data from API {self.api.value}. {e}"
-            )
-        except Exception as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Error occurs while getting data (internally) {self.api.value}. {e}"
-            )
+        async with self._session.get(url) as response:
+            json: dict = await response.json()
+            return json
 
     @override
-    async def get_data(
+    async def _get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
         plate_detail_raw: dict | None = await self._request(plate_info)
@@ -127,18 +105,26 @@ class ZMIOGetDataEngine(BaseGetDataEngine):
             return
         plate_detail_typed: _Response = cast(_Response, plate_detail_raw)
         if plate_detail_typed["data"] is None:
-            logger.error(f"Plate {plate_info.plate}: Cannot get data")
+            logger.error(
+                "Plate %s: Cannot get data",
+                plate_info.plate,
+            )
             return
         if plate_detail_typed["data"]["json"] is None:
             logger.info(
-                f"Plate {plate_info.plate}: Not found or don't have any violations"
+                "Plate %s: Not found or don't have any violations",
+                plate_info.plate,
             )
             return ()
-        violation_details: tuple[ViolationDetail, ...] | None = _ZMIOGetDataParseEngine(
+        violation_details: tuple[ViolationDetail, ...] | None = _ZmioParseEngine(
             plate_info=plate_info, data=plate_detail_typed["data"]["json"]
         ).parse()
         return violation_details
 
+    @override
+    async def __aenter__(self) -> Self:
+        return self
+
+    @override
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        if self._session_ is not None:
-            await self._session_.close()
+        await RequestSessionHelper.__aexit__(self, exc_type, exc_value, exc_traceback)

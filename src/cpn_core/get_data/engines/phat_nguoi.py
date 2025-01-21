@@ -1,11 +1,9 @@
 import re
-from asyncio import TimeoutError
 from datetime import datetime
 from logging import getLogger
 from re import DOTALL
-from typing import LiteralString, override
+from typing import LiteralString, Self, override
 
-from aiohttp import ClientError, ClientSession, ClientTimeout
 from bs4 import BeautifulSoup, ResultSet, Tag
 
 from cpn_core.get_data.engines.base import BaseGetDataEngine
@@ -15,18 +13,19 @@ from cpn_core.types.api import ApiEnum
 from cpn_core.types.vehicle_type import (
     get_vehicle_enum,
 )
+from cpn_core.utils.request_session_helper import RequestSessionHelper
 
 logger = getLogger(__name__)
 
-API_URL: LiteralString = "https://api.phatnguoi.vn/web/tra-cuu"
+API_URL: LiteralString = "https://api.phatnguoi.vn/web/tra-cuu/{plate}/{type}"
 RESPONSE_DATETIME_FORMAT: LiteralString = "%H:%M, %d/%m/%Y"
 
 
-class _PhatNguoiGetDataParseEngine:
+class _PhatNguoiParseEngine:
     def __init__(self, plate_info: PlateInfo, html_data: str) -> None:
         self._plate_info: PlateInfo = plate_info
         self._html_data: str = html_data
-        self._violations_details_set: set[ViolationDetail] = set()
+        self._violation_details_set: set[ViolationDetail] = set()
 
     def _parse_violation(self, violation_html: Tag) -> None:
         plate: str | None = (
@@ -125,7 +124,7 @@ class _PhatNguoiGetDataParseEngine:
             )
             return
         # # TODO: Split resolution_office as other api
-        self._violations_details_set.add(
+        self._violation_details_set.add(
             ViolationDetail(
                 plate=plate,
                 color=color,
@@ -154,60 +153,47 @@ class _PhatNguoiGetDataParseEngine:
         for violation_html in violation_htmls:
             self._parse_violation(violation_html)
         violation_details: tuple[ViolationDetail, ...] = tuple(
-            self._violations_details_set
+            self._violation_details_set
         )
         if not violation_details:
-            logger.info(f"Plate {self._plate_info.plate}: Don't find any violation")
+            logger.info("Plate %s: Don't find any violation", self._plate_info.plate)
         return violation_details
 
 
-class PhatNguoiGetDataEngine(BaseGetDataEngine):
-    api: ApiEnum = ApiEnum.phatnguoi_vn
+class PhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
+    @property
+    def api(self) -> ApiEnum:
+        return ApiEnum.phatnguoi_vn
 
     def __init__(self, *, timeout: float = 20) -> None:
-        self._timeout: float = timeout
-        self._session_: ClientSession | None = None
-
-    @property
-    def _session(self) -> ClientSession:
-        if self._session_ is None:
-            self._session_ = ClientSession(
-                timeout=ClientTimeout(self._timeout),
-            )
-        return self._session_
+        BaseGetDataEngine.__init__(self, timeout=timeout)
+        RequestSessionHelper.__init__(self, timeout=timeout)
 
     async def _request(self, plate_info: PlateInfo) -> str | None:
-        url: str = f"{API_URL}/{plate_info.plate}/{get_vehicle_enum(plate_info.type)}"
-        try:
-            async with self._session.get(url=url) as response:
-                html_data: str = await response.text()
-            return html_data
-        except TimeoutError as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Time out ({self._timeout}s) getting data from API {self.api.value}. {e}"
-            )
-        except ClientError as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Error occurs while getting data from API {self.api.value}. {e}"
-            )
-        except Exception as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Error occurs while getting data (internally) {self.api.value}. {e}"
-            )
+        url: str = API_URL.format(
+            plate=plate_info.plate, type=get_vehicle_enum(plate_info.type)
+        )
+        async with self._session.get(url=url) as response:
+            html_data: str = await response.text()
+        return html_data
 
     @override
-    async def get_data(
+    async def _get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
         html_data: str | None = await self._request(plate_info)
         if html_data is None:
             return
-        violations: tuple[ViolationDetail, ...] | None = _PhatNguoiGetDataParseEngine(
+        violations: tuple[ViolationDetail, ...] | None = _PhatNguoiParseEngine(
             plate_info=plate_info,
             html_data=html_data,
         ).parse()
         return violations
 
+    @override
+    async def __aenter__(self) -> Self:
+        return self
+
+    @override
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        if self._session_ is not None:
-            await self._session_.close()
+        await RequestSessionHelper.__aexit__(self, exc_type, exc_value, exc_traceback)

@@ -1,18 +1,16 @@
 import json
-from asyncio import TimeoutError
 from datetime import datetime
 from logging import getLogger
 from typing import (
     Final,
     Literal,
     LiteralString,
+    Self,
     TypeAlias,
     TypedDict,
     cast,
     override,
 )
-
-from aiohttp import ClientError, ClientSession, ClientTimeout
 
 from cpn_core.get_data.engines.base import BaseGetDataEngine
 from cpn_core.models.plate_info import PlateInfo
@@ -23,6 +21,7 @@ from cpn_core.types.vehicle_type import (
     VehicleTypeEnum,
     get_vehicle_enum,
 )
+from cpn_core.utils.request_session_helper import RequestSessionHelper
 
 API_URL: LiteralString = "https://api.checkphatnguoi.vn/phatnguoi"
 RESPONSE_DATETIME_FORMAT: LiteralString = "%H:%M, %d/%m/%Y"
@@ -75,19 +74,23 @@ _NotFoundResponse = TypedDict(
 _Response: TypeAlias = _FoundResponse | _NotFoundResponse
 
 
-class _CheckPhatNguoiGetDataParseEngine:
+class _CheckPhatNguoiParseEngine:
     def __init__(self, plate_info: PlateInfo, plate_detail_dict: _Response) -> None:
         self._plate_info: PlateInfo = plate_info
         self._vehicle_type: VehicleTypeEnum = get_vehicle_enum(plate_info.type)
         self._plate_detail_typed: _Response = plate_detail_dict
-        self._violations_details_set: set[ViolationDetail] = set()
+        self._violation_details_set: set[ViolationDetail] = set()
 
     def _parse_violation(self, data: _DataResponse) -> None:
         type: VehicleStrVieType = data["Loại phương tiện"]
         # NOTE: this is for filtering the vehicle that doesn't match the plate info type. Because checkphatnguoi.vn return all of the type of the plate
         parsed_type: VehicleTypeEnum = get_vehicle_enum(type)
         if parsed_type != self._vehicle_type:
-            logger.info("The violation doesn't match the input vehicle type")
+            logger.info(
+                "Plate %s: The violation doesn't match the input vehicle type %s",
+                self._plate_info.plate,
+                self._vehicle_type,
+            )
             return
         plate: str = data["Biển kiểm soát"]
         date: str = data["Thời gian vi phạm"]
@@ -109,80 +112,66 @@ class _CheckPhatNguoiGetDataParseEngine:
             enforcement_unit=enforcement_unit,
             resolution_offices=resolution_offices,
         )
-        self._violations_details_set.add(violation_detail)
+        self._violation_details_set.add(violation_detail)
 
     def parse(self) -> tuple[ViolationDetail, ...] | None:
         if self._plate_detail_typed["status"] == 2:
-            logger.info("Don't have any violations")
+            logger.info(
+                "Plate %s: Don't have any violations",
+                self._plate_info.plate,
+            )
             return ()
         if self._plate_detail_typed["status"] != 1:
-            logger.error("Unknown Error with status = 1 from API")
+            logger.error(
+                "Plate %s: Unknown Error with status = 1 from API",
+                self._plate_info.plate,
+            )
             return
         for violation in self._plate_detail_typed["data"]:
             self._parse_violation(violation)
-        return tuple(self._violations_details_set)
+        return tuple(self._violation_details_set)
 
 
-class CheckPhatNguoiGetDataEngine(BaseGetDataEngine):
-    api: ApiEnum = ApiEnum.checkphatnguoi_vn
+class CheckPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
+    @property
+    def api(self) -> ApiEnum:
+        return ApiEnum.phatnguoi_vn
+
     headers: Final[dict[str, str]] = {"Content-Type": "application/json"}
 
     def __init__(self, *, timeout: float = 20) -> None:
-        self._timeout: float = timeout
-        self._session_: ClientSession | None = None
-
-    @property
-    def _session(self) -> ClientSession:
-        if self._session_ is None:
-            self._session_ = ClientSession(
-                timeout=ClientTimeout(self._timeout),
-            )
-        return self._session_
+        BaseGetDataEngine.__init__(self, timeout=timeout)
+        RequestSessionHelper.__init__(self, timeout=timeout)
 
     async def _request(self, plate_info: PlateInfo) -> dict | None:
-        if self._session is None:
-            logger.error(
-                f"Plate {plate_info.plate} - API {self.api.value}: Session hasn't been created"
-            )
-            return
         payload: Final[dict[str, str]] = {"bienso": plate_info.plate}
-        try:
-            async with self._session.post(
-                API_URL,
-                headers=self.headers,
-                json=payload,
-            ) as response:
-                response.raise_for_status()
-                response_data: bytes = await response.read()
-                return json.loads(response_data)
-        except TimeoutError as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Time out ({self._timeout}s) getting data from API {self.api.value}. {e}"
-            )
-        except ClientError as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Error occurs while getting data from API {self.api.value}. {e}"
-            )
-        except Exception as e:
-            logger.error(
-                f"Plate {plate_info.plate}: Error occurs while getting data (internally) {self.api.value}. {e}"
-            )
+        async with self._session.post(
+            API_URL,
+            headers=self.headers,
+            json=payload,
+        ) as response:
+            response.raise_for_status()
+            response_data: bytes = await response.read()
+            return json.loads(response_data)
 
     @override
-    async def get_data(
-        self, plate_info: PlateInfo
+    async def _get_data(
+        self,
+        plate_info: PlateInfo,
     ) -> tuple[ViolationDetail, ...] | None:
         plate_detail_raw: dict | None = await self._request(plate_info)
         if not plate_detail_raw:
             return
         plate_detail_typed: _Response = cast(_Response, plate_detail_raw)
-        violations: tuple[ViolationDetail, ...] | None = (
-            _CheckPhatNguoiGetDataParseEngine(
-                plate_info=plate_info, plate_detail_dict=plate_detail_typed
-            ).parse()
-        )
+        violations: tuple[ViolationDetail, ...] | None = _CheckPhatNguoiParseEngine(
+            plate_info=plate_info, plate_detail_dict=plate_detail_typed
+        ).parse()
         return violations
 
+    @override
+    async def __aenter__(self) -> Self:
+        return self
+
+    @override
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        if self._session_ is not None:
-            await self._session_.close()
+        await RequestSessionHelper.__aexit__(self, exc_type, exc_value, exc_traceback)

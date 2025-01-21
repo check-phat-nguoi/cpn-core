@@ -33,7 +33,7 @@ class _DiscordNotificationCoreEngine:
         try:
             channel = await self._client.fetch_channel(self.discord.chat_id)
             if channel is None:
-                logger.error(f"Discord channel ID {self.discord.chat_id}: Not found")
+                logger.error("Discord channel ID %d: Not found", self.discord.chat_id)
                 return
             if (
                 isinstance(channel, ForumChannel)
@@ -41,30 +41,41 @@ class _DiscordNotificationCoreEngine:
                 or isinstance(channel, PrivateChannel)
             ):
                 logger.error(
-                    f"Discord channel ID {self.discord.chat_id} is not sendable channel"
+                    "Discord channel ID %d is not sendable channel",
+                    self.discord.chat_id,
                 )
                 return
             for message in self._messages:
                 await channel.send(message)
-            logger.info(f"Successfully sent to Discord channel: {self.discord.chat_id}")
+            logger.info(
+                "Successfully sent to Discord channel: %d", self.discord.chat_id
+            )
         except Exception as e:
-            logger.error(f"Discord channel ID {self.discord.chat_id}: {e}")
+            logger.error("Discord channel ID %d: %s", self.discord.chat_id, e)
 
     async def _send_user(self) -> None:
         try:
             user: User = await self._client.fetch_user(self.discord.chat_id)
             for message in self._messages:
                 await user.send(message)
-            logger.info(f"Successfully sent to Discord user: {self.discord.chat_id}")
+            logger.info("Successfully sent to Discord user: %d", self.discord.chat_id)
         except Forbidden as e:
             logger.error(
-                f"Discord bot doesn't have permission to send to user {self.discord.chat_id}. {e}"
+                "Discord bot doesn't have permission to send to user %d. %s",
+                self.discord.chat_id,
+                e,
             )
         except HTTPException as e:
-            logger.error(f"Failed to send message to {self.discord.chat_id}. {e}")
+            logger.error(
+                "Failed to send message to %d. %s",
+                self.discord.chat_id,
+                e,
+            )
         except Exception as e:
             logger.error(
-                f"Failed to send message to {self.discord.chat_id} (internal). {e}"
+                "Failed to send message to %d (internal). %s",
+                self.discord.chat_id,
+                e,
             )
 
     async def send(self) -> None:
