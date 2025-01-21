@@ -12,7 +12,7 @@ from discord import (
     User,
 )
 
-from cpn_core.notifications.models.discord import DiscordNotificationEngineConfig
+from cpn_core.models.notifications.discord import DiscordConfig
 
 from .base import BaseNotificationEngine
 
@@ -20,13 +20,13 @@ logger = getLogger(__name__)
 
 
 # FIXME: @NTGNguyen: fetch channel, id bla bla bla. The command_prefix seem bruh? not relate
-class _DiscordNotificationCoreEngine:
+class _DiscordCoreEngine:
     def __init__(
         self,
-        discord: DiscordNotificationEngineConfig,
+        discord: DiscordConfig,
         messages: tuple[str, ...],
     ) -> None:
-        self.discord: DiscordNotificationEngineConfig = discord
+        self.discord: DiscordConfig = discord
         self._messages: tuple[str, ...] = messages
         self._client = Client(intents=Intents.default())
 
@@ -91,14 +91,12 @@ class _DiscordNotificationCoreEngine:
         await self._client.start(self.discord.bot_token)
 
 
-class DiscordNotificationEngine(
-    BaseNotificationEngine[DiscordNotificationEngineConfig]
-):
+class DiscordEngine(BaseNotificationEngine[DiscordConfig]):
     @override
     async def send(
         self,
-        config: DiscordNotificationEngineConfig,
+        config: DiscordConfig,
         messages: tuple[str, ...],
     ) -> None:
-        discord_engine = _DiscordNotificationCoreEngine(config, messages)
+        discord_engine = _DiscordCoreEngine(config, messages)
         await discord_engine.send()
