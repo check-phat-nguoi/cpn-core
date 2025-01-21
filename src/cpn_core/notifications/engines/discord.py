@@ -2,15 +2,15 @@ from logging import getLogger
 from typing import override
 
 from discord import (
+    CategoryChannel,
     Client,
-    DMChannel,
     Forbidden,
-    GroupChannel,
+    ForumChannel,
     HTTPException,
     Intents,
-    TextChannel,
     User,
 )
+from discord.abc import PrivateChannel
 
 from cpn_core.notifications.models.discord import DiscordNotificationEngineConfig
 
@@ -19,7 +19,6 @@ from .base import BaseNotificationEngine
 logger = getLogger(__name__)
 
 
-# FIXME: @NTGNguyen: fetch channel, id bla bla bla. The command_prefix seem bruh? not relate
 class _DiscordNotificationCoreEngine:
     def __init__(
         self,
@@ -37,12 +36,12 @@ class _DiscordNotificationCoreEngine:
                 logger.error(f"Discord channel ID {self.discord.chat_id}: Not found")
                 return
             if (
-                not isinstance(channel, TextChannel)
-                or not isinstance(channel, GroupChannel)
-                or not isinstance(channel, DMChannel)
+                isinstance(channel, ForumChannel)
+                or isinstance(channel, CategoryChannel)
+                or isinstance(channel, PrivateChannel)
             ):
                 logger.error(
-                    f"Discord channel ID {self.discord.chat_id}: Must be text channel"
+                    f"Discord channel ID {self.discord.chat_id} is not sendable channel"
                 )
                 return
             for message in self._messages:
