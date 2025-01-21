@@ -2,6 +2,8 @@ from abc import abstractmethod
 from logging import getLogger
 from typing import Self, final
 
+from httpx import StreamError, TimeoutException
+
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
@@ -33,7 +35,7 @@ class BaseGetDataEngine:
     ) -> tuple[ViolationDetail, ...] | None:
         try:
             return await self._get_data(plate_info)
-        except TimeoutError as e:
+        except TimeoutException as e:
             logger.error(
                 "Plate %s: Time out (%ds) getting data from API %s. %s",
                 plate_info.plate,
@@ -41,7 +43,13 @@ class BaseGetDataEngine:
                 self.api.value,
                 e,
             )
-
+        except StreamError as e:
+            logger.error(
+                "Plate %s:An error in accessing the request stream in an invalid way %s. %s",
+                plate_info.plate,
+                self.api.value,
+                e,
+            )
         except Exception as e:
             logger.error(
                 "Plate %s: Error occurs while getting data (internal) %s. %s",

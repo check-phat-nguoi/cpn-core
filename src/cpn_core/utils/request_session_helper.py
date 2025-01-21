@@ -1,9 +1,13 @@
 from logging import getLogger
-from typing import Self
+from ssl import SSLContext
+from ssl import create_default_context as ssl_create_context
+from typing import Final, Self
 
 from httpx import AsyncClient
 
 logger = getLogger(__name__)
+SSL_CONTEXT: Final[SSLContext] = ssl_create_context()
+SSL_CONTEXT.set_ciphers("DEFAULT@SECLEVEL=1")
 
 
 class RequestSessionHelper:
@@ -14,9 +18,7 @@ class RequestSessionHelper:
     @property
     def _session(self) -> AsyncClient:
         if self._session_ is None:
-            self._session_ = AsyncClient(
-                timeout=self._timeout,
-            )
+            self._session_ = AsyncClient(timeout=self._timeout, verify=SSL_CONTEXT)
             logger.debug("Created a request session")
         return self._session_
 
