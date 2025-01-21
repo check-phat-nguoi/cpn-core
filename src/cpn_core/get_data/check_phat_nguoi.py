@@ -161,7 +161,6 @@ class CheckPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
         self,
         plate_info: PlateInfo,
     ) -> tuple[ViolationDetail, ...] | None:
-        print("nkdladwldakjdawndwadlljwadlwdhajdwadlwahdalwdhawd")
         plate_detail_raw: dict | None = await self._request(plate_info)
         if not plate_detail_raw:
             return

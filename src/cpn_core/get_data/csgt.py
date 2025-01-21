@@ -57,7 +57,7 @@ class _CsgtCoreEngine(RequestSessionHelper):
         with Image.open(BytesIO(captcha_img)) as image:
             return image_to_string(image).strip()
 
-    async def _get_phpsessid_and_captcha(self) -> tuple[str, bytes]:
+    async def _get_phpsessid_and_captcha(self) -> tuple[str, bytes] | None:
         logger.debug(
             "Plate %s: Getting cookies and captcha...",
             self._plate_info.plate,
@@ -68,9 +68,10 @@ class _CsgtCoreEngine(RequestSessionHelper):
         ) as response:
             response.raise_for_status()
             phpsessid: str | None = response.cookies.get("PHPSESSID")
-            if not phpsessid:
-                raise ValueError("PHPSESSID cookie not found")
             captcha_img: bytes = await response.aread()
+            if not phpsessid:
+                logger.error("PHPSESSID Not found")
+                return
             logger.debug(
                 "Plate %s PHPSESSID: %s",
                 self._plate_info.plate,
@@ -265,7 +266,10 @@ class _CsgtCoreEngine(RequestSessionHelper):
             ):
                 with attempt:
                     print("Yes retrying enabled")
-                    phpsessid, captcha_img = await self._get_phpsessid_and_captcha()
+                    result = await self._get_phpsessid_and_captcha()
+                    if not result:
+                        return
+                    phpsessid, captcha_img = result
                     captcha: str = self._bypass_captcha(captcha_img)
                     logger.debug(
                         "Plate %s captcha resolved: %s", self._plate_info.plate, captcha
