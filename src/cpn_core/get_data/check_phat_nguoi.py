@@ -152,7 +152,7 @@ class CheckPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
             json=payload,
         ) as response:
             response.raise_for_status()
-            content = await response.aread()
+            content: bytes = await response.aread()
             response_data = json.loads(content.decode("utf-8"))
             return response_data
 
