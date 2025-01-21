@@ -1,5 +1,4 @@
 from datetime import datetime
-from http.cookies import SimpleCookie
 from io import BytesIO
 from logging import getLogger
 from ssl import SSLContext
@@ -63,13 +62,15 @@ class _CsgtCoreEngine(RequestSessionHelper):
             "Plate %s: Getting cookies and captcha...",
             self._plate_info.plate,
         )
-        async with self._session.get(
+        async with self._session.stream(
+            "GET",
             API_CAPTCHA,
-            ssl=SSL_CONTEXT,
         ) as response:
             response.raise_for_status()
-            phpsessid: str = response.cookies["PHPSESSID"].value
-            captcha_img: bytes = await response.read()
+            phpsessid: str | None = response.cookies.get("PHPSESSID")
+            if not phpsessid:
+                raise ValueError("PHPSESSID cookie not found")
+            captcha_img: bytes = await response.aread()
             logger.debug(
                 "Plate %s PHPSESSID: %s",
                 self._plate_info.plate,
@@ -88,25 +89,27 @@ class _CsgtCoreEngine(RequestSessionHelper):
         headers: dict[str, str] = {
             "Content-Type": "application/x-www-form-urlencoded",
         }
-        cookies: SimpleCookie = SimpleCookie(f"PHPSESSID={phpsessid}")
-        async with self._session.post(
+        cookies: dict[str, str] = {"PHPSESSID": phpsessid}
+        async with self._session.stream(
+            "POST",
             url=API_QUERY_1,
             headers=headers,
             cookies=cookies,
             data=payload,
-            ssl=SSL_CONTEXT,
         ) as response:
-            return await response.text()
+            html_content = await response.aread()
+            return html_content.decode("utf-8")
 
     async def _get_plate_data(self) -> str:
-        async with self._session.post(
+        async with self._session.stream(
+            "POST",
             url=API_QUERY_2.format(
                 vehicle_type=self._vehicle_type.value,
                 plate=self._plate_info.plate,
             ),
-            ssl=SSL_CONTEXT,
         ) as response:
-            return await response.text()
+            plate_data = await response.aread()
+            return plate_data.decode("utf-8")
 
     def _parse_violation(self, violation_data: str) -> None:
         soup: BeautifulSoup = BeautifulSoup(violation_data, "html.parser")

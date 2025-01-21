@@ -2,8 +2,6 @@ from abc import abstractmethod
 from logging import getLogger
 from typing import Self, final
 
-from aiohttp import ClientError
-
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
@@ -43,13 +41,7 @@ class BaseGetDataEngine:
                 self.api.value,
                 e,
             )
-        except ClientError as e:
-            logger.error(
-                "Plate %s: Error occurs while getting data from API %s. %s",
-                plate_info.plate,
-                self.api.value,
-                e,
-            )
+
         except Exception as e:
             logger.error(
                 "Plate %s: Error occurs while getting data (internal) %s. %s",

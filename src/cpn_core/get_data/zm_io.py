@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from logging import getLogger
 from typing import Literal, LiteralString, Self, TypedDict, cast, override
@@ -92,9 +93,10 @@ class ZmioEngine(BaseGetDataEngine, RequestSessionHelper):
         url: str = API_URL.format(
             plate=plate_info.plate, type=get_vehicle_enum(plate_info.type)
         )
-        async with self._session.get(url) as response:
-            json: dict = await response.json()
-            return json
+        async with self._session.stream("GET", url) as response:
+            content = await response.aread()
+            data = json.loads(content.decode("utf-8"))
+            return data
 
     @override
     async def _get_data(

@@ -10,6 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
   "aiohttp[speedups]>=3.11.11",
   "beautifulsoup4>=4.12.3",
+  "httpx>=0.28.1",
   "pydantic>=2.10.4",
   "tenacity>=9.0.0",
 ]
