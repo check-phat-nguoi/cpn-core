@@ -79,7 +79,7 @@ class _CheckPhatNguoiParseEngine:
         self._plate_info: PlateInfo = plate_info
         self._vehicle_type: VehicleTypeEnum = get_vehicle_enum(plate_info.type)
         self._plate_detail_typed: _Response = plate_detail_dict
-        self._violations_details_set: set[ViolationDetail] = set()
+        self._violation_details_set: set[ViolationDetail] = set()
 
     def _parse_violation(self, data: _DataResponse) -> None:
         type: VehicleStrVieType = data["Loại phương tiện"]
@@ -112,7 +112,7 @@ class _CheckPhatNguoiParseEngine:
             enforcement_unit=enforcement_unit,
             resolution_offices=resolution_offices,
         )
-        self._violations_details_set.add(violation_detail)
+        self._violation_details_set.add(violation_detail)
 
     def parse(self) -> tuple[ViolationDetail, ...] | None:
         if self._plate_detail_typed["status"] == 2:
@@ -129,7 +129,7 @@ class _CheckPhatNguoiParseEngine:
             return
         for violation in self._plate_detail_typed["data"]:
             self._parse_violation(violation)
-        return tuple(self._violations_details_set)
+        return tuple(self._violation_details_set)
 
 
 class CheckPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):

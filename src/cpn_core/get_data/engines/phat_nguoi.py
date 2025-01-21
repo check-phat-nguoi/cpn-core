@@ -25,7 +25,7 @@ class _PhatNguoiParseEngine:
     def __init__(self, plate_info: PlateInfo, html_data: str) -> None:
         self._plate_info: PlateInfo = plate_info
         self._html_data: str = html_data
-        self._violations_details_set: set[ViolationDetail] = set()
+        self._violation_details_set: set[ViolationDetail] = set()
 
     def _parse_violation(self, violation_html: Tag) -> None:
         plate: str | None = (
@@ -124,7 +124,7 @@ class _PhatNguoiParseEngine:
             )
             return
         # # TODO: Split resolution_office as other api
-        self._violations_details_set.add(
+        self._violation_details_set.add(
             ViolationDetail(
                 plate=plate,
                 color=color,
@@ -153,7 +153,7 @@ class _PhatNguoiParseEngine:
         for violation_html in violation_htmls:
             self._parse_violation(violation_html)
         violation_details: tuple[ViolationDetail, ...] = tuple(
-            self._violations_details_set
+            self._violation_details_set
         )
         if not violation_details:
             logger.info("Plate %s: Don't find any violation", self._plate_info.plate)

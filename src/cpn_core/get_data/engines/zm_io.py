@@ -48,7 +48,7 @@ class _ZmioParseEngine:
     ) -> None:
         self._plate_info: PlateInfo = plate_info
         self._data: tuple[_DataPlateInfoResponse, ...] = data
-        self._violations_details_set: set[ViolationDetail] = set()
+        self._violation_details_set: set[ViolationDetail] = set()
 
     def _parse_violation(self, data: _DataPlateInfoResponse) -> None:
         plate: str = data["bienkiemsoat"]
@@ -71,12 +71,12 @@ class _ZmioParseEngine:
             resolution_offices=resolution_offices,
             violation=None,
         )
-        self._violations_details_set.add(violation_detail)
+        self._violation_details_set.add(violation_detail)
 
     def parse(self) -> tuple[ViolationDetail, ...] | None:
         for violations in self._data:
             self._parse_violation(violations)
-        return tuple(self._violations_details_set)
+        return tuple(self._violation_details_set)
 
 
 class ZmioEngine(BaseGetDataEngine, RequestSessionHelper):

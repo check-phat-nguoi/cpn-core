@@ -49,7 +49,7 @@ class _CsgtCoreEngine(RequestSessionHelper):
     def __init__(self, plate_info: PlateInfo, *, timeout: float, retry_captcha) -> None:
         self._plate_info: PlateInfo = plate_info
         self._vehicle_type: VehicleTypeEnum = get_vehicle_enum(self._plate_info.type)
-        self._violations_details_set: set[ViolationDetail] = set()
+        self._violation_details_set: set[ViolationDetail] = set()
         self._retry_captcha: int = retry_captcha
         super().__init__(timeout=timeout)
 
@@ -215,7 +215,7 @@ class _CsgtCoreEngine(RequestSessionHelper):
             enforcement_unit=enforcement_unit,
             resolution_offices=tuple(resolution_offices),
         )
-        self._violations_details_set.add(violation_detail)
+        self._violation_details_set.add(violation_detail)
 
     def _parse_violations(
         self, violations_data: list[str]
@@ -223,7 +223,7 @@ class _CsgtCoreEngine(RequestSessionHelper):
         for violation_data in violations_data:
             self._parse_violation(violation_data)
         violation_details: tuple[ViolationDetail, ...] = tuple(
-            self._violations_details_set
+            self._violation_details_set
         )
         if not violation_details:
             logger.info(
