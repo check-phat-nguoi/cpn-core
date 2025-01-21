@@ -2,12 +2,12 @@ from abc import abstractmethod
 from logging import getLogger
 from typing import Self, TypeVar
 
-from cpn_core.notifications.models.base import BaseNotificationEngineConfig
+from cpn_core.models.notifications.base import BaseNotificationConfig
 
 logger = getLogger(__name__)
 
 
-T: TypeVar = TypeVar("T", bound=BaseNotificationEngineConfig)
+T: TypeVar = TypeVar("T", bound=BaseNotificationConfig)
 
 
 class BaseNotificationEngine[T]:

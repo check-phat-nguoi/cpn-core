@@ -2,10 +2,10 @@ from re import match as re_match
 
 from pydantic import ConfigDict, Field, field_validator
 
-from cpn_core.notifications.models.base import BaseNotificationEngineConfig
+from cpn_core.models.notifications.base import BaseNotificationConfig
 
 
-class TelegramNotificationEngineConfig(BaseNotificationEngineConfig):
+class TelegramConfig(BaseNotificationConfig):
     model_config = ConfigDict(
         title="Telegram",
         frozen=True,
@@ -41,6 +41,3 @@ class TelegramNotificationEngineConfig(BaseNotificationEngineConfig):
         if not re_match(r"^[+-]?[0-9]+$", _chat_id):
             raise ValueError("Chat ID is not valid")
         return _chat_id
-
-
-__all__ = ["TelegramNotificationEngineConfig"]

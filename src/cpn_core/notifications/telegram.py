@@ -4,9 +4,7 @@ from typing import LiteralString, override
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
-from cpn_core.notifications.models.telegram import (
-    TelegramNotificationEngineConfig,
-)
+from cpn_core.models.notifications.telegram import TelegramConfig
 
 from .base import BaseNotificationEngine
 
@@ -16,9 +14,7 @@ API_URL: LiteralString = "https://api.telegram.org/bot{bot_token}/sendMessage"
 logger = getLogger(__name__)
 
 
-class TelegramNotificationEngine(
-    BaseNotificationEngine[TelegramNotificationEngineConfig]
-):
+class TelegramEngine(BaseNotificationEngine[TelegramConfig]):
     def __init__(self, *, timeout: float) -> None:
         self._timeout: float = timeout
         self._session: ClientSession = ClientSession(
@@ -27,7 +23,7 @@ class TelegramNotificationEngine(
 
     async def _send_message(
         self,
-        telegram: TelegramNotificationEngineConfig,
+        telegram: TelegramConfig,
         message: str,
     ) -> None:
         url: str = API_URL.format(bot_token=telegram.bot_token)
@@ -69,7 +65,7 @@ class TelegramNotificationEngine(
     @override
     async def send(
         self,
-        config: TelegramNotificationEngineConfig,
+        config: TelegramConfig,
         messages: tuple[str, ...],
     ) -> None:
         await asyncio.gather(

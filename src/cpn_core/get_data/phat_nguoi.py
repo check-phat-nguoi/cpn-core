@@ -6,7 +6,7 @@ from typing import LiteralString, Self, override
 
 from bs4 import BeautifulSoup, ResultSet, Tag
 
-from cpn_core.get_data.engines.base import BaseGetDataEngine
+from cpn_core.get_data.base import BaseGetDataEngine
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
