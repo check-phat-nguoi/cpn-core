@@ -2,12 +2,12 @@ from typing import Any, override
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from cpn_core.types._vehicle_type import (
+from cpn_core.types.api import ApiEnum
+from cpn_core.types.vehicle_type import (
     VehicleType,
     get_vehicle_enum,
     get_vehicle_str_vie,
 )
-from cpn_core.types.api import ApiEnum
 
 
 class PlateInfo(BaseModel):

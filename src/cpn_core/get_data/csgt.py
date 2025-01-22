@@ -13,15 +13,15 @@ from tenacity import (
     stop_after_attempt,
 )
 
+from cpn_core._utils._request_session_helper import RequestSessionHelper
 from cpn_core.get_data.base import BaseGetDataEngine
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
-from cpn_core.types._vehicle_type import (
+from cpn_core.types.api import ApiEnum
+from cpn_core.types.vehicle_type import (
     VehicleTypeEnum,
     get_vehicle_enum,
 )
-from cpn_core.types.api import ApiEnum
-from cpn_core.utils._request_session_helper import RequestSessionHelper
 
 RESPONSE_DATETIME_FORMAT: LiteralString = "%H:%M, %d/%m/%Y"
 

@@ -3,9 +3,9 @@ from typing import Literal, LiteralString, override
 
 from pydantic import BaseModel
 
-from cpn_core.constants.datetime import DATETIME_FORMAT_12, DATETIME_FORMAT_24
-from cpn_core.types._vehicle_type import VehicleTypeEnum, get_vehicle_str_vie
-from cpn_core.utils._gen_map_search_url import _gen_map_search_url
+from cpn_core._constants.datetime import DATETIME_FORMAT_12, DATETIME_FORMAT_24
+from cpn_core._utils._gen_map_search_url import _gen_map_search_url
+from cpn_core.types.vehicle_type import VehicleTypeEnum, get_vehicle_str_vie
 
 
 class ViolationDetail(BaseModel):
