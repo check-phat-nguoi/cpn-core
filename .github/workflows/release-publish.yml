@@ -2,19 +2,22 @@ name: Release & publish
 
 on:
   push:
+    # branches:
+    #   - main
     tags:
-      - '*'
+      - 'v*'
+  # schedule:
+  #   - cron: "30 0 * * 0"
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
-  cancel-in-progress: false
+# concurrency:
+#   group: ${{ github.ref }}-${{ github.workflow }}
+#   cancel-in-progress: false
 
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    # if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
@@ -28,17 +31,17 @@ jobs:
         id: git-cliff
         with:
           config: cliff.toml
-          args: -vv --latest --strip header
+          args: -vv ${{ startsWith(github.ref, 'refs/tags/v') &&  '--latest' || '--unreleased' }} --strip header
         env:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'nightly' }}
           body: ${{ steps.git-cliff.outputs.content }}
-          prerelease: ${{ github.event.release.tag != '' }}
-          make_latest: ${{ github.event.release.tag == '' }}
+          prerelease: ${{ ! startsWith(github.ref, 'refs/tags/v') }}
+          make_latest: ${{ startsWith(github.ref, 'refs/tags/v') }}
 
   publish-pypi:
     name: Publish to Pypi
@@ -47,8 +50,8 @@ jobs:
       id-token: write # IMPORTANT: this permission is mandatory for trusted publishing
     environment:
       name: pypi
-      url: https://pypi.org/p/cpn-cli
-    # if: startsWith(github.ref, 'refs/tags/v')
+      url: https://pypi.org/p/cpn-core
+    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -57,13 +60,15 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
-          cache-dependency-glob: 'uv.lock'
+          cache-dependency-glob: |
+            pyproject.toml
 
       - uses: actions/setup-python@v5
         with:
           python-version-file: '.python-version'
           cache: 'pip'
-          cache-dependency-path: 'uv.lock'
+          cache-dependency-path: |
+            pyproject.toml
 
       - uses: extractions/setup-just@v2
 
@@ -75,5 +80,5 @@ jobs:
 
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_TOKEN }}
+        # with:
+        #   password: ${{ secrets.PYPI_TOKEN }}

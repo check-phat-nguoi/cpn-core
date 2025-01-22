@@ -4,9 +4,7 @@ from typing import LiteralString, override
 
 from aiohttp import ClientError, ClientSession, ClientTimeout
 
-from cpn_core.notifications.models.telegram import (
-    TelegramNotificationEngineConfig,
-)
+from cpn_core.models.notifications.telegram import TelegramConfig
 
 from .base import BaseNotificationEngine
 
@@ -16,9 +14,7 @@ API_URL: LiteralString = "https://api.telegram.org/bot{bot_token}/sendMessage"
 logger = getLogger(__name__)
 
 
-class TelegramNotificationEngine(
-    BaseNotificationEngine[TelegramNotificationEngineConfig]
-):
+class TelegramEngine(BaseNotificationEngine[TelegramConfig]):
     def __init__(self, *, timeout: float) -> None:
         self._timeout: float = timeout
         self._session: ClientSession = ClientSession(
@@ -27,7 +23,7 @@ class TelegramNotificationEngine(
 
     async def _send_message(
         self,
-        telegram: TelegramNotificationEngineConfig,
+        telegram: TelegramConfig,
         message: str,
     ) -> None:
         url: str = API_URL.format(bot_token=telegram.bot_token)
@@ -42,25 +38,34 @@ class TelegramNotificationEngine(
                 json=payload,
             ) as response:
                 response.raise_for_status()
-            logger.info(f"Successfully sent to Telegram Chat ID: {telegram.chat_id}")
+            logger.info("Successfully sent to Telegram Chat ID: %s", telegram.chat_id)
         except TimeoutError as e:
             logger.error(
-                f"Timeout ({self._timeout}s) sending to Telegram Chat ID: {telegram.chat_id}. {e}"
+                "Timeout (%ds) sending to Telegram Chat ID: %s. %s",
+                self._timeout,
+                telegram.chat_id,
+                e,
             )
             raise
         except ClientError as e:
-            logger.error(f"Failed to sent to Telegram Chat ID: {telegram.chat_id}. {e}")
+            logger.error(
+                "Failed to sent to Telegram Chat ID: %s. %s",
+                telegram.chat_id,
+                e,
+            )
             raise
         except Exception as e:
             logger.error(
-                f"Failed to sent to Telegram Chat ID (internally): {telegram.chat_id}. {e}"
+                "Failed to sent to Telegram Chat ID (internally): %s. %s",
+                telegram.chat_id,
+                e,
             )
             raise
 
     @override
     async def send(
         self,
-        config: TelegramNotificationEngineConfig,
+        config: TelegramConfig,
         messages: tuple[str, ...],
     ) -> None:
         await asyncio.gather(

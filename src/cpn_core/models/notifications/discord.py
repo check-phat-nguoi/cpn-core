@@ -3,10 +3,10 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
-from cpn_core.notifications.models.base import BaseNotificationEngineConfig
+from cpn_core.models.notifications.base import BaseNotificationConfig
 
 
-class DiscordNotificationEngineConfig(BaseNotificationEngineConfig):
+class DiscordConfig(BaseNotificationConfig):
     model_config = ConfigDict(
         title="Discord",
         frozen=True,
@@ -45,6 +45,3 @@ class DiscordNotificationEngineConfig(BaseNotificationEngineConfig):
         if not re_match(r"^\d{18,19}$", f"{_user_id}"):
             raise ValueError("User id is not valid")
         return _user_id
-
-
-__all__ = ["DiscordNotificationEngineConfig"]

@@ -1,7 +1,9 @@
-from typing import Any, override
+from datetime import datetime
+from typing import Any, Literal, LiteralString, override
 
 from pydantic import BaseModel, Field, computed_field
 
+from cpn_core.constants.datetime import DATETIME_FORMAT_12, DATETIME_FORMAT_24
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 
@@ -13,34 +15,106 @@ class PlateDetail(BaseModel):
     violations: tuple[ViolationDetail, ...] | None = Field(
         description="Danh sách các vi phạm của 1 biển xe",
     )
+    date_time: datetime = Field(
+        description="Thời gian lấy thông tin",
+        default_factory=datetime.now,
+    )
 
     @computed_field
     @property
-    def total_fines(self) -> int | None:
-        if not self.violations:
-            return
+    def total_fines(self) -> int:
+        if self.violations is None:
+            return -1
         return len(self.violations)
 
     @computed_field
     @property
-    def total_peding_fines(self) -> int | None:
-        if not self.violations:
-            return None
+    def total_peding_fines(self) -> int:
+        if self.violations is None:
+            return -1
         return len(
             tuple(violation for violation in self.violations if not violation.status)
         )
 
-    def get_strs(self, *, show_less_detail: bool, markdown: bool) -> tuple[str, ...]:
+    def _get_fines_total_str(
+        self, *, show_less_detail: bool, markdown: bool
+    ) -> str | None:
+        if self.violations is None:
+            return None
+        if markdown:
+            return (
+                ""
+                if not show_less_detail
+                else f"**Số vi phạm:** `{self.total_fines}`\n"
+            ) + f"**Số vi phạm chưa xử phạt:** `{self.total_peding_fines}`"
+        else:
+            return (
+                "" if not show_less_detail else f"Số vi phạm: {self.total_fines}\n"
+            ) + (f"Số vi phạm chưa xử phạt: {self.total_peding_fines}")
+
+    def get_str(
+        self,
+        *,
+        show_less_detail: bool,
+        markdown: bool,
+        time_format: Literal["12", "24"],
+    ) -> str:
+        plate_info: str = self.plate_info.get_str(
+            show_less_detail=show_less_detail, markdown=markdown
+        )
+        if self.violations is None:
+            return plate_info
+        fines_total: str | None = self._get_fines_total_str(
+            show_less_detail=show_less_detail, markdown=markdown
+        )
+        violation_header: LiteralString = (
+            "**Vi phạm thứ #{order}:**\n" if markdown else "Vi phạm thứ #{order}:\n"
+        )
+        violations: tuple[str, ...] = tuple(
+            violation.get_str(
+                show_less_detail=show_less_detail,
+                markdown=markdown,
+                time_format=time_format,
+            )
+            for violation in self.violations
+        )
+        return (
+            plate_info
+            + (f"\n{fines_total}" if fines_total else "")
+            + "\n\n"
+            + "\n\n".join(
+                violation_header.format(order=order) + violation
+                for order, violation in enumerate(violations, start=1)
+            )
+        )
+
+    def get_messages(
+        self,
+        *,
+        show_less_detail: bool,
+        markdown: bool,
+        time_format: Literal["12", "24"],
+    ) -> tuple[str, ...]:
         if not self.violations:
             return ()
         plate_info: str = self.plate_info.get_str(
             show_less_detail=show_less_detail, markdown=markdown
         )
         violations: tuple[str, ...] = tuple(
-            violation.get_str(show_less_detail=show_less_detail, markdown=markdown)
+            violation.get_str(
+                show_less_detail=show_less_detail,
+                markdown=markdown,
+                time_format=time_format,
+            )
             for violation in self.violations
         )
-        return tuple(f"{plate_info}\n{violation}" for violation in violations)
+        date_time: str = self.date_time.strftime(
+            DATETIME_FORMAT_24 if time_format == "24" else DATETIME_FORMAT_12
+        )
+        return tuple(
+            f"{plate_info}\n\n{violation}\n\nGửi lúc: {date_time}"
+            for violation in violations
+        )
 
     @override
     def __hash__(self):
@@ -55,21 +129,6 @@ class PlateDetail(BaseModel):
                 else (not self.violations and not other.violations)
             )
         return False
-
-    # TODO: Handle show details later when main updates that option
-    @override
-    def __str__(self) -> str:
-        return (
-            (
-                f"{self.plate_info}\n\n"
-                + "\n".join(
-                    f"Lỗi vi phạm #{order}:\n{violation}\n"
-                    for order, violation in enumerate(self.violations, start=1)
-                )
-            )
-            if self.violations
-            else str(self.plate_info)
-        ).strip()
 
 
 __all__ = ["PlateDetail"]
