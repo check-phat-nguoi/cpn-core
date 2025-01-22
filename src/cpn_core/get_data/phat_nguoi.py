@@ -9,11 +9,11 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from cpn_core.get_data.base import BaseGetDataEngine
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
-from cpn_core.types.api import ApiEnum
-from cpn_core.types.vehicle_type import (
+from cpn_core.types._vehicle_type import (
     get_vehicle_enum,
 )
-from cpn_core.utils.request_session_helper import RequestSessionHelper
+from cpn_core.types.api import ApiEnum
+from cpn_core.utils._request_session_helper import RequestSessionHelper
 
 logger = getLogger(__name__)
 
