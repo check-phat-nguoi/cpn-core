@@ -1,9 +1,12 @@
-from re import match as re_match
+from re import compile as re_compile
 from typing import Literal
 
 from pydantic import ConfigDict, Field, field_validator
 
 from cpn_core.models.notifications.base import BaseNotificationConfig
+
+BOT_TOKEN_PATTERN = re_compile(r"^[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$")
+CHAT_ID_PATTERN = re_compile(r"^\d{18,19}$")
 
 
 class DiscordConfig(BaseNotificationConfig):
@@ -32,16 +35,14 @@ class DiscordConfig(BaseNotificationConfig):
 
     @field_validator("bot_token", mode="after")
     @classmethod
-    def validate_bot_token(cls, _bot_token: str) -> str:
-        if not re_match(
-            r"^[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+$", _bot_token
-        ):
-            raise ValueError("Bot token is not valid")
-        return _bot_token
+    def _validate_bot_token(cls, value: str) -> str:
+        if not BOT_TOKEN_PATTERN.match(value):
+            raise ValueError(f"Bot token {value} is not valid")
+        return value
 
     @field_validator("chat_id", mode="after")
     @classmethod
-    def validate_user_id(cls, _user_id: int) -> int:
-        if not re_match(r"^\d{18,19}$", f"{_user_id}"):
-            raise ValueError("User id is not valid")
-        return _user_id
+    def _validate_chat_id(cls, value: int) -> int:
+        if not CHAT_ID_PATTERN.match(str(value)):
+            raise ValueError(f"User ID {value} is not valid")
+        return value

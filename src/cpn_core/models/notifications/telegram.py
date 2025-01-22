@@ -1,8 +1,10 @@
-from re import match as re_match
+from re import compile as re_compile
 
 from pydantic import ConfigDict, Field, field_validator
 
 from cpn_core.models.notifications.base import BaseNotificationConfig
+
+BOT_TOKEN_PATTERN = re_compile(r"^[0-9]+:.+$")
 
 
 class TelegramConfig(BaseNotificationConfig):
@@ -30,14 +32,14 @@ class TelegramConfig(BaseNotificationConfig):
 
     @field_validator("bot_token", mode="after")
     @classmethod
-    def validate_bot_token(cls, _bot_token: str) -> str:
-        if not re_match(r"^[0-9]+:.+$", _bot_token):
-            raise ValueError("Bot token is not valid")
-        return _bot_token
+    def validate_bot_token(cls, value: str) -> str:
+        if not BOT_TOKEN_PATTERN.match(value):
+            raise ValueError(f"Bot token {value} is not valid")
+        return value
 
     @field_validator("chat_id", mode="after")
     @classmethod
-    def validate_chat_id(cls, _chat_id: str) -> str:
-        if not re_match(r"^[+-]?[0-9]+$", _chat_id):
-            raise ValueError("Chat ID is not valid")
-        return _chat_id
+    def validate_chat_id(cls, value: str) -> str:
+        if not value.lstrip("-").isnumeric():
+            raise ValueError(f"Chat ID {value} is not valid")
+        return value
