@@ -1,9 +1,7 @@
 from datetime import datetime
 from io import BytesIO
 from logging import getLogger
-from ssl import SSLContext
-from ssl import create_default_context as ssl_create_context
-from typing import Final, LiteralString, override
+from typing import LiteralString, override
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from PIL import Image
@@ -35,8 +33,6 @@ logger = getLogger(__name__)
 
 
 # https://github.com/PyGithub/PyGithub/issues/2300
-SSL_CONTEXT: Final[SSLContext] = ssl_create_context()
-SSL_CONTEXT.set_ciphers("DEFAULT@SECLEVEL=1")
 
 
 class ResolveCaptchaFail(Exception): ...
