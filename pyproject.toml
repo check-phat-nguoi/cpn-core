@@ -2,6 +2,12 @@
 authors = [
   { name = "KevinNitroG", email = "kevinnitro@duck.com" },
   { name = "NTGNguyen", email = 'ntgnguyen@duck.com' },
+  { name = "WeeCiCi", email = 'wicici310@gmail.com' },
+]
+maintainers = [
+  { name = "KevinNitroG", email = "kevinnitro@duck.com" },
+  { name = "NTGNguyen", email = 'ntgnguyen@duck.com' },
+  { name = "WeeCiCi", email = 'wicici310@gmail.com' },
 ]
 description = "cpn core"
 name = "cpn-core"
