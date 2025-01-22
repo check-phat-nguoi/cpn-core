@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "../../../.venv/bin/python",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.generateWithTypeAnnotation": true,
+  "python.languageServer": "Pylance"
+}
