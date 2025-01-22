@@ -3,7 +3,7 @@ from typing import Any, Literal, LiteralString, override
 
 from pydantic import BaseModel, Field, computed_field
 
-from cpn_core.constants.datetime import DATETIME_FORMAT_12, DATETIME_FORMAT_24
+from cpn_core._constants.datetime import DATETIME_FORMAT_12, DATETIME_FORMAT_24
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 
