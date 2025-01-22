@@ -17,7 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 discord = ["audioop-lts>=0.2.1", "discord-py>=2.4.0"]
 ocr = ["pytesseract>=0.3.13"]
-etraffic = ["curl-cffi>=0.7.4"]
+curl = ["curl-cffi>=0.7.5"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
