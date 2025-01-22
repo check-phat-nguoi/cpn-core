@@ -2,7 +2,7 @@ import asyncio
 from logging import getLogger
 from typing import LiteralString, override
 
-from aiohttp import ClientError, ClientSession, ClientTimeout
+from httpx import AsyncClient
 
 from cpn_core.models.notifications.telegram import TelegramConfig
 
@@ -17,8 +17,8 @@ logger = getLogger(__name__)
 class TelegramEngine(BaseNotificationEngine[TelegramConfig]):
     def __init__(self, *, timeout: float) -> None:
         self._timeout: float = timeout
-        self._session: ClientSession = ClientSession(
-            timeout=ClientTimeout(timeout),
+        self._session: AsyncClient = AsyncClient(
+            timeout=timeout,
         )
 
     async def _send_message(
@@ -33,7 +33,8 @@ class TelegramEngine(BaseNotificationEngine[TelegramConfig]):
             "parse_mode": "Markdown",
         }
         try:
-            async with self._session.post(
+            async with self._session.stream(
+                "POST",
                 url,
                 json=payload,
             ) as response:
@@ -43,13 +44,6 @@ class TelegramEngine(BaseNotificationEngine[TelegramConfig]):
             logger.error(
                 "Timeout (%ds) sending to Telegram Chat ID: %s. %s",
                 self._timeout,
-                telegram.chat_id,
-                e,
-            )
-            raise
-        except ClientError as e:
-            logger.error(
-                "Failed to sent to Telegram Chat ID: %s. %s",
                 telegram.chat_id,
                 e,
             )
@@ -79,4 +73,4 @@ class TelegramEngine(BaseNotificationEngine[TelegramConfig]):
         )
 
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        await self._session.close()
+        await self._session.aclose()

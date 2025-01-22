@@ -173,9 +173,9 @@ class PhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
         url: str = API_URL.format(
             plate=plate_info.plate, type=get_vehicle_enum(plate_info.type)
         )
-        async with self._session.get(url=url) as response:
-            html_data: str = await response.text()
-        return html_data
+        async with self._session.stream("GET", url=url) as response:
+            html_data: bytes = await response.aread()
+        return html_data.decode("utf-8")
 
     @override
     async def _get_data(
