@@ -22,10 +22,8 @@ class _DataPlateInfoResponse(TypedDict):
     violationId: str | None
     licensePlate: str
     licensePlateType: str
-    vehicleType: Literal[
-        "Ô tô", "Xe máy", "Xe máy điện"
-    ]  # FIX: This return "Ô tô con" instead of "Ô tô"
-    vehicleTypeText: Literal["Ô tô", "Xe máy", "Xe máy điện"]
+    vehicleType: Literal["Ô tô con", "Xe máy", "Xe máy điện"]
+    vehicleTypeText: Literal["Ô tô con", "Xe máy", "Xe máy điện"]
     violationType: str | None
     violationTypeText: str
     violationAt: str
@@ -74,7 +72,7 @@ class _EtrafficGetDataParseEngine:
     def _parse_violation(self, data: _DataPlateInfoResponse) -> None:
         plate: str = data["licensePlate"]
         date: str = data["violationAt"]
-        type: Literal["Ô tô", "Xe máy", "Xe máy điện"] = data["vehicleType"]
+        type: Literal["Ô tô con", "Xe máy", "Xe máy điện"] = data["vehicleType"]
         color: str = data["licensePlateType"]
         location: str = data["handlingAddress"]
         status: str = data["statusType"]
@@ -100,7 +98,11 @@ class _EtrafficGetDataParseEngine:
 
 
 class EtrafficGetDataEngine(BaseGetDataEngine):
-    api = ApiEnum.etraffic_gtelict_vn
+    @property
+    def api(self):
+        """The api property."""
+        return ApiEnum.etraffic_gtelict_vn
+
     headers = {
         "Content-Type": "application/json",
         "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
@@ -153,7 +155,7 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
             logger.error(f"Error occurs:{e}")
 
     @override
-    async def get_data(
+    async def _get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
         plate_detail_raw = self._request(plate_info)
