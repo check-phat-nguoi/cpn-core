@@ -89,23 +89,23 @@ class ZmioEngine(BaseGetDataEngine, RequestSessionHelper):
         BaseGetDataEngine.__init__(self, timeout=timeout)
         RequestSessionHelper.__init__(self, timeout=timeout)
 
-    async def _request(self, plate_info: PlateInfo) -> dict | None:
+    async def _request(self, plate_info: PlateInfo) -> _Response | None:
         url: str = API_URL.format(
             plate=plate_info.plate, type=get_vehicle_enum(plate_info.type)
         )
         async with self._session.stream("GET", url) as response:
             content = await response.aread()
             data = json.loads(content.decode("utf-8"))
-            return data
+            plate_detail_typed: _Response = cast(_Response, data)
+            return plate_detail_typed
 
     @override
     async def _get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
-        plate_detail_raw: dict | None = await self._request(plate_info)
-        if not plate_detail_raw:
+        plate_detail_typed: _Response | None = await self._request(plate_info)
+        if not plate_detail_typed:
             return
-        plate_detail_typed: _Response = cast(_Response, plate_detail_raw)
         if plate_detail_typed["data"] is None:
             logger.error(
                 "Plate %s: Cannot get data",

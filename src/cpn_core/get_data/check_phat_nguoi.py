@@ -143,7 +143,7 @@ class CheckPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
         BaseGetDataEngine.__init__(self, timeout=timeout)
         RequestSessionHelper.__init__(self, timeout=timeout)
 
-    async def _request(self, plate_info: PlateInfo) -> dict | None:
+    async def _request(self, plate_info: PlateInfo) -> _Response | None:
         payload: Final[dict[str, str]] = {"bienso": plate_info.plate}
         async with self._session.stream(
             "POST",
@@ -154,17 +154,17 @@ class CheckPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
             response.raise_for_status()
             content: bytes = await response.aread()
             response_data = json.loads(content.decode("utf-8"))
-            return response_data
+            plate_detail_typed = cast(_Response, response_data)
+            return plate_detail_typed
 
     @override
     async def _get_data(
         self,
         plate_info: PlateInfo,
     ) -> tuple[ViolationDetail, ...] | None:
-        plate_detail_raw: dict | None = await self._request(plate_info)
-        if not plate_detail_raw:
+        plate_detail_typed: _Response | None = await self._request(plate_info)
+        if not plate_detail_typed:
             return
-        plate_detail_typed: _Response = cast(_Response, plate_detail_raw)
         violations: tuple[ViolationDetail, ...] | None = _CheckPhatNguoiParseEngine(
             plate_info=plate_info, plate_detail_dict=plate_detail_typed
         ).parse()
