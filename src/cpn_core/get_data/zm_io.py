@@ -96,30 +96,29 @@ class ZmioEngine(BaseGetDataEngine, RequestSessionHelper):
         async with self._session.stream("GET", url) as response:
             content = await response.aread()
             data = json.loads(content.decode("utf-8"))
-            plate_detail_typed: _Response = cast(_Response, data)
-            return plate_detail_typed
+            return cast(_Response, data)
 
     @override
     async def _get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
-        plate_detail_typed: _Response | None = await self._request(plate_info)
-        if not plate_detail_typed:
+        response: _Response | None = await self._request(plate_info)
+        if not response:
             return
-        if plate_detail_typed["data"] is None:
+        if response["data"] is None:
             logger.error(
                 "Plate %s: Cannot get data",
                 plate_info.plate,
             )
             return
-        if plate_detail_typed["data"]["json"] is None:
+        if response["data"]["json"] is None:
             logger.info(
                 "Plate %s: Not found or don't have any violations",
                 plate_info.plate,
             )
             return ()
         violation_details: tuple[ViolationDetail, ...] | None = _ZmioParseEngine(
-            plate_info=plate_info, data=plate_detail_typed["data"]["json"]
+            plate_info=plate_info, data=response["data"]["json"]
         ).parse()
         return violation_details
 

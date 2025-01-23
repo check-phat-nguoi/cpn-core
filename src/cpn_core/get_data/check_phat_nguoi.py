@@ -75,10 +75,10 @@ _Response: TypeAlias = _FoundResponse | _NotFoundResponse
 
 
 class _CheckPhatNguoiParseEngine:
-    def __init__(self, plate_info: PlateInfo, plate_detail_dict: _Response) -> None:
+    def __init__(self, plate_info: PlateInfo, response: _Response) -> None:
         self._plate_info: PlateInfo = plate_info
         self._vehicle_type: VehicleTypeEnum = get_vehicle_enum(plate_info.type)
-        self._plate_detail_typed: _Response = plate_detail_dict
+        self._response: _Response = response
         self._violation_details_set: set[ViolationDetail] = set()
 
     def _parse_violation(self, data: _DataResponse) -> None:
@@ -115,19 +115,19 @@ class _CheckPhatNguoiParseEngine:
         self._violation_details_set.add(violation_detail)
 
     def parse(self) -> tuple[ViolationDetail, ...] | None:
-        if self._plate_detail_typed["status"] == 2:
+        if self._response["status"] == 2:
             logger.info(
                 "Plate %s: Don't have any violations",
                 self._plate_info.plate,
             )
             return ()
-        if self._plate_detail_typed["status"] != 1:
+        if self._response["status"] != 1:
             logger.error(
                 "Plate %s: Unknown Error with status = 1 from API",
                 self._plate_info.plate,
             )
             return
-        for violation in self._plate_detail_typed["data"]:
+        for violation in self._response["data"]:
             self._parse_violation(violation)
         return tuple(self._violation_details_set)
 
@@ -154,19 +154,18 @@ class CheckPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
             response.raise_for_status()
             content: bytes = await response.aread()
             response_data = json.loads(content.decode("utf-8"))
-            plate_detail_typed = cast(_Response, response_data)
-            return plate_detail_typed
+            return cast(_Response, response_data)
 
     @override
     async def _get_data(
         self,
         plate_info: PlateInfo,
     ) -> tuple[ViolationDetail, ...] | None:
-        plate_detail_typed: _Response | None = await self._request(plate_info)
-        if not plate_detail_typed:
+        response: _Response | None = await self._request(plate_info)
+        if not response:
             return
         violations: tuple[ViolationDetail, ...] | None = _CheckPhatNguoiParseEngine(
-            plate_info=plate_info, plate_detail_dict=plate_detail_typed
+            plate_info=plate_info, response=response
         ).parse()
         return violations
 
