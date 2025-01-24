@@ -108,7 +108,9 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
         "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
     }
 
-    def __init__(self, citizen_indentify: str, password: str, time_out: float) -> None:
+    def __init__(
+        self, citizen_indentify: str, password: str, time_out: float = 10
+    ) -> None:
         self._citizen_indetify = citizen_indentify
         self._password = password
         self._time_out = time_out
@@ -135,7 +137,7 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
         except Exception as e:
             logger.error(f"Error occurs:{e}")
 
-    def _request(self, plate_info: PlateInfo) -> dict | None:
+    def _request(self, plate_info: PlateInfo) -> _Response | None:
         headers: Final[dict[str, str]] = {
             "Authorization": f"Bearer {self._request_token(plate_info)}",
             "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
@@ -146,7 +148,8 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
         }
         try:
             response = requests.get(url=API_URL, headers=headers, params=params)
-            return response.json()
+            plate_detail_raw = response.json()
+            return cast(_Response, plate_detail_raw)
         except CurlError as e:
             logger.error(
                 f"Error occurs while getting data for plate {plate_info.plate} in API {API_TOKEN_URL}: {e}"
@@ -158,10 +161,10 @@ class EtrafficGetDataEngine(BaseGetDataEngine):
     async def _get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
-        plate_detail_raw = self._request(plate_info)
-        if not plate_detail_raw:
+        plate_detail_typed = self._request(plate_info)
+        if not plate_detail_typed:
+            logger.error(f"Failed to get data from api:{self.api}")
             return
-        plate_detail_typed = cast(_Response, plate_detail_raw)
         if plate_detail_typed["tag"] == "limit_response":
             logger.error("You are limited to send more requests")
             return
