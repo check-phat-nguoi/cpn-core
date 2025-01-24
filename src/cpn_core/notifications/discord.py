@@ -2,15 +2,15 @@ from logging import getLogger
 from typing import override
 
 from discord import (
+    CategoryChannel,
     Client,
-    DMChannel,
     Forbidden,
-    GroupChannel,
+    ForumChannel,
     HTTPException,
     Intents,
-    TextChannel,
     User,
 )
+from discord.abc import PrivateChannel
 
 from cpn_core.models.notifications.discord import DiscordConfig
 
@@ -37,12 +37,13 @@ class _DiscordCoreEngine:
                 logger.error("Discord channel ID %d: Not found", self.discord.chat_id)
                 return
             if (
-                not isinstance(channel, TextChannel)
-                or not isinstance(channel, GroupChannel)
-                or not isinstance(channel, DMChannel)
+                isinstance(channel, ForumChannel)
+                or isinstance(channel, CategoryChannel)
+                or isinstance(channel, PrivateChannel)
             ):
                 logger.error(
-                    "Discord channel ID %d: Must be text channel", self.discord.chat_id
+                    "Discord channel ID %d is not sendable channel",
+                    self.discord.chat_id,
                 )
                 return
             for message in self._messages:
