@@ -3,6 +3,7 @@ from logging import getLogger
 from typing import Self, final
 
 from curl_cffi import CurlError
+from curl_cffi.requests.exceptions import Timeout
 from httpx import StreamError, TimeoutException
 
 from cpn_core.models.plate_info import PlateInfo
@@ -36,7 +37,7 @@ class BaseGetDataEngine:
     ) -> tuple[ViolationDetail, ...] | None:
         try:
             return await self._get_data(plate_info)
-        except TimeoutException as e:
+        except TimeoutException | Timeout as e:
             logger.error(
                 "Plate %s - %s: Time out (%ds) getting data from API. %s",
                 plate_info.plate,
