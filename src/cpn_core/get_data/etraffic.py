@@ -97,7 +97,7 @@ class _EtrafficGetDataParseEngine:
         return tuple(self._violations_details_set)
 
 
-class EtrafficGetDataEngine(BaseGetDataEngine):
+class EtrafficEngine(BaseGetDataEngine):
     @property
     def api(self):
         """The api property."""
