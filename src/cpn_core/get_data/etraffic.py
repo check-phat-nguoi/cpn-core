@@ -2,7 +2,7 @@ from datetime import datetime
 from logging import getLogger
 from typing import Final, Literal, LiteralString, TypedDict, cast, override
 
-from curl_cffi import CurlError, requests
+from curl_cffi import requests
 
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
@@ -99,8 +99,7 @@ class _EtrafficGetDataParseEngine:
 
 class EtrafficEngine(BaseGetDataEngine):
     @property
-    def api(self):
-        """The api property."""
+    def api(self) -> ApiEnum:
         return ApiEnum.etraffic_gtelict_vn
 
     headers = {
@@ -109,64 +108,55 @@ class EtrafficEngine(BaseGetDataEngine):
     }
 
     def __init__(
-        self, citizen_indentify: str, password: str, time_out: float = 10
+        self, citizen_indentify: str, password: str, *, timeout: float = 10
     ) -> None:
         self._citizen_indetify = citizen_indentify
         self._password = password
-        self._time_out = time_out
+        self._timeout = timeout
 
-    def _request_token(self, plate_info: PlateInfo) -> str | None:
+    def _request_token(self) -> str:
         data: Final[dict[str, str]] = {
             "citizenIndentify": self._citizen_indetify,
             "password": self._password,
         }
-        try:
-            response = requests.post(
-                url=API_TOKEN_URL,
-                headers=self.headers,
-                json=data,
-                allow_redirects=False,
-                verify=False,
-            )
-            data_dict = response.json()
-            return data_dict["value"]["refreshToken"]
-        except CurlError as e:
-            logger.error(
-                f"Error occurs while getting token for plate {plate_info.plate} in API {API_TOKEN_URL}: {e}"
-            )
-        except Exception as e:
-            logger.error(f"Error occurs:{e}")
+        response = requests.post(
+            url=API_TOKEN_URL,
+            headers=self.headers,
+            json=data,
+            verify=False,
+            timeout=self._timeout,
+        )
+        # FIXME: cast type
+        data_dict = response.json()
+        return data_dict["value"]["refreshToken"]
 
-    def _request(self, plate_info: PlateInfo) -> _Response | None:
+    def _request(self, plate_info: PlateInfo) -> _Response:
         headers: Final[dict[str, str]] = {
-            "Authorization": f"Bearer {self._request_token(plate_info)}",
+            "Authorization": f"Bearer {self._request_token()}",
             "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
         }
         params: Final[dict[str, str]] = {
             "licensePlate": plate_info.plate,
-            "type": f"{get_vehicle_enum(plate_info.type)}",
+            "type": f"{get_vehicle_enum(plate_info.type).value}",
         }
-        try:
-            response = requests.get(url=API_URL, headers=headers, params=params)
-            plate_detail_raw = response.json()
-            return cast(_Response, plate_detail_raw)
-        except CurlError as e:
-            logger.error(
-                f"Error occurs while getting data for plate {plate_info.plate} in API {API_TOKEN_URL}: {e}"
-            )
-        except Exception as e:
-            logger.error(f"Error occurs:{e}")
+        response: requests.Response = requests.get(
+            url=API_URL,
+            headers=headers,
+            params=params,
+            timeout=self._timeout,
+        )
+        data: dict = response.json()
+        return cast(_Response, data)
 
     @override
     async def _get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
-        plate_detail_typed = self._request(plate_info)
-        if not plate_detail_typed:
-            logger.error(f"Failed to get data from api:{self.api}")
-            return
+        plate_detail_typed: _Response = self._request(plate_info)
         if plate_detail_typed["tag"] == "limit_response":
-            logger.error("You are limited to send more requests")
+            logger.error(
+                "Plate %s - %s. Got limitted error.", plate_info.plate, self.api
+            )
             return
         violation_details: tuple[ViolationDetail, ...] | None = (
             _EtrafficGetDataParseEngine(

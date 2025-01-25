@@ -91,7 +91,7 @@ class ZmioEngine(BaseGetDataEngine, RequestSessionHelper):
 
     async def _request(self, plate_info: PlateInfo) -> _Response | None:
         url: str = API_URL.format(
-            plate=plate_info.plate, type=get_vehicle_enum(plate_info.type)
+            plate=plate_info.plate, type=get_vehicle_enum(plate_info.type).value
         )
         async with self._session.stream("GET", url) as response:
             content = await response.aread()

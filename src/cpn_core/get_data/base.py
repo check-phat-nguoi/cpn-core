@@ -2,6 +2,7 @@ from abc import abstractmethod
 from logging import getLogger
 from typing import Self, final
 
+from curl_cffi import CurlError
 from httpx import StreamError, TimeoutException
 
 from cpn_core.models.plate_info import PlateInfo
@@ -37,22 +38,22 @@ class BaseGetDataEngine:
             return await self._get_data(plate_info)
         except TimeoutException as e:
             logger.error(
-                "Plate %s: Time out (%ds) getting data from API %s. %s",
+                "Plate %s - %s: Time out (%ds) getting data from API. %s",
                 plate_info.plate,
-                self._timeout,
                 self.api.value,
+                self._timeout,
                 e,
             )
-        except StreamError as e:
+        except StreamError | CurlError as e:
             logger.error(
-                "Plate %s:An error in accessing the request stream in an invalid way %s. %s",
+                "Plate %s - %s: Error occured. %s",
                 plate_info.plate,
                 self.api.value,
                 e,
             )
         except Exception as e:
             logger.error(
-                "Plate %s: Error occurs while getting data (internal) %s. %s",
+                "Plate %s - %s: Error occurs while getting data (internal). %s",
                 plate_info.plate,
                 self.api.value,
                 e,
