@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from cpn_core.types.api import ApiEnum
 from cpn_core.types.vehicle_type import (
     VehicleType,
+    VehicleTypeEnum,
     get_vehicle_enum,
     get_vehicle_str_vie,
 )
@@ -21,7 +22,7 @@ class PlateInfo(BaseModel):
         title="Biển số",
         examples=["60A64685", "98-A-56604", "30-F88251", "59XB-00000"],
     )
-    type: VehicleType = Field(
+    type: VehicleType | VehicleTypeEnum = Field(
         description="Loại phương tiện để gửi request cũng như lọc loại phương tiện đối với các API không lọc loại phương tiện sẵn",
         title="Loại phương tiện",
     )

@@ -21,15 +21,16 @@ def get_vehicle_enum(type: VehicleTypeEnum | VehicleType | Any) -> VehicleTypeEn
     if isinstance(type, VehicleTypeEnum):
         return type
     match type:
-        case "car" | "Ô tô" | 1 | VehicleTypeEnum.car:
+        case VehicleTypeEnum.car | "car" | "Ô tô" | 1 | "1":
             return VehicleTypeEnum.car
-        case "motorbike" | "Xe máy" | 2 | VehicleTypeEnum.motorbike:
+        case VehicleTypeEnum.motorbike | "motorbike" | "Xe máy" | 2 | "2":
             return VehicleTypeEnum.motorbike
         case (
-            "electric_motorbike"
+            VehicleTypeEnum.electric_motorbike
+            | "electric_motorbike"
             | "Xe máy điện"
             | 3
-            | VehicleTypeEnum.electric_motorbike
+            | "3"
         ):
             return VehicleTypeEnum.electric_motorbike
         case _:
@@ -38,15 +39,16 @@ def get_vehicle_enum(type: VehicleTypeEnum | VehicleType | Any) -> VehicleTypeEn
 
 def get_vehicle_str(type: VehicleTypeEnum | VehicleType | Any) -> VehicleStrType:
     match type:
-        case "car" | "Ô tô" | 1 | VehicleTypeEnum.car:
+        case VehicleTypeEnum.car | "car" | "Ô tô" | 1 | "1":
             return "car"
-        case "motorbike" | "Xe máy" | 2 | VehicleTypeEnum.motorbike:
+        case VehicleTypeEnum.motorbike | "motorbike" | "Xe máy" | 2 | "2":
             return "motorbike"
         case (
-            "electric_motorbike"
+            VehicleTypeEnum.electric_motorbike
+            | "electric_motorbike"
             | "Xe máy điện"
             | 3
-            | VehicleTypeEnum.electric_motorbike
+            | "3"
         ):
             return "electric_motorbike"
         case _:
@@ -55,15 +57,16 @@ def get_vehicle_str(type: VehicleTypeEnum | VehicleType | Any) -> VehicleStrType
 
 def get_vehicle_str_vie(type: VehicleTypeEnum | VehicleType | Any) -> VehicleStrVieType:
     match type:
-        case "car" | "Ô tô" | 1 | VehicleTypeEnum.car:
+        case VehicleTypeEnum.car | "car" | "Ô tô" | 1 | "1":
             return "Ô tô"
-        case "motorbike" | "Xe máy" | 2 | VehicleTypeEnum.motorbike:
+        case VehicleTypeEnum.motorbike | "motorbike" | "Xe máy" | 2 | "2":
             return "Xe máy"
         case (
-            "electric_motorbike"
+            VehicleTypeEnum.electric_motorbike
+            | "electric_motorbike"
             | "Xe máy điện"
             | 3
-            | VehicleTypeEnum.electric_motorbike
+            | "3"
         ):
             return "Xe máy điện"
         case _:
