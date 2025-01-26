@@ -124,7 +124,6 @@ class TraCuuPhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
         plate_info: PlateInfo,
     ) -> tuple[ViolationDetail, ...] | None:
         response = await self._request(plate_info)
-        print(response)
         if response is None:
             return None
         violations: tuple[ViolationDetail, ...] | None = _TraCuuPhatNguoiParseEngine(
