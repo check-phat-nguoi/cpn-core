@@ -2,7 +2,8 @@ from datetime import datetime
 from logging import getLogger
 from typing import Final, Literal, LiteralString, TypedDict, cast, override
 
-from curl_cffi import requests
+from curl_cffi import CurlError, requests
+from curl_cffi.requests.exceptions import Timeout
 
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
@@ -164,3 +165,32 @@ class EtrafficEngine(BaseGetDataEngine):
             ).parse()
         )
         return violation_details
+
+    @override
+    async def get_data(
+        self, plate_info: PlateInfo
+    ) -> tuple[ViolationDetail, ...] | None:
+        try:
+            return await self._get_data(plate_info)
+        except Timeout as e:
+            logger.error(
+                "Plate %s - %s: Time out (%ds) getting data from API. %s",
+                plate_info.plate,
+                self.api.value,
+                self._timeout,
+                e,
+            )
+        except CurlError as e:
+            logger.error(
+                "Plate %s - %s: Error occured. %s",
+                plate_info.plate,
+                self.api.value,
+                e,
+            )
+        except Exception as e:
+            logger.error(
+                "Plate %s - %s: Error occurs while getting data (internal). %s",
+                plate_info.plate,
+                self.api.value,
+                e,
+            )
