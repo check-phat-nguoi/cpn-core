@@ -2,9 +2,6 @@ from datetime import datetime
 from logging import getLogger
 from typing import Final, Literal, LiteralString, TypedDict, cast, override
 
-from curl_cffi import CurlError, requests
-from curl_cffi.requests.exceptions import Timeout
-
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
@@ -13,10 +10,20 @@ from cpn_core.types.vehicle_type import get_vehicle_enum
 from .base import BaseGetDataEngine
 
 logger = getLogger(__name__)
+
+
 API_TOKEN_URL = "https://etraffic.gtelict.vn/api/citizen/v2/auth/login"
 API_URL = "https://etraffic.gtelict.vn/api/citizen/v2/property/deferred/fines"
 
 RESPONSE_DATETIME_FORMAT: LiteralString = "%H:%M, %d/%m/%Y"
+
+try:
+    from curl_cffi import CurlError, requests
+    from curl_cffi.requests.exceptions import Timeout
+except ImportError:
+    raise RuntimeError(
+        'Cannot use Etraffic get data engine because "curl_cffi" dependency in "curl" optional dependencies group hasn\'t been installed'
+    )
 
 
 class _DataPlateInfoResponse(TypedDict):

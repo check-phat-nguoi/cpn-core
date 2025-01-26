@@ -1,20 +1,26 @@
 from logging import getLogger
 from typing import override
 
-from discord import (
-    Client,
-    DMChannel,
-    Forbidden,
-    GroupChannel,
-    HTTPException,
-    Intents,
-    TextChannel,
-    User,
-)
-
 from cpn_core.models.notifications.discord import DiscordConfig
 
 from .base import BaseNotificationEngine
+
+try:
+    from discord import (
+        Client,
+        DMChannel,
+        Forbidden,
+        GroupChannel,
+        HTTPException,
+        Intents,
+        TextChannel,
+        User,
+    )
+except ImportError:
+    raise RuntimeError(
+        'Cannot use Discord notification engine because "discord-py" dependency in "discord" optional dependencies group hasn\'t been installed'
+    )
+
 
 logger = getLogger(__name__)
 

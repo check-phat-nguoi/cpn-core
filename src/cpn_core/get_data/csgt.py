@@ -5,7 +5,6 @@ from typing import LiteralString, override
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from PIL import Image
-from pytesseract import image_to_string
 from tenacity import (
     AsyncRetrying,
     RetryError,
@@ -22,6 +21,13 @@ from cpn_core.types.vehicle_type import (
     VehicleTypeEnum,
     get_vehicle_enum,
 )
+
+try:
+    from pytesseract import image_to_string
+except ImportError:
+    raise RuntimeError(
+        'Cannot use Csgt get data engine because "pytesseract" dependency in "ocr" optional dependencies group hasn\'t been installed'
+    )
 
 RESPONSE_DATETIME_FORMAT: LiteralString = "%H:%M, %d/%m/%Y"
 
