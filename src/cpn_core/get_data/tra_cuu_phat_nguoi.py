@@ -24,7 +24,7 @@ from cpn_core.types.vehicle_type import (
     get_vehicle_enum,
 )
 
-API_URL_1: LiteralString = "https://tracuuphatnguoi.net/tracuu1.php"
+API_URL_1: LiteralString = "https://tracuuphatnguoi.net"
 API_URL_2: LiteralString = (
     "https://tracuuphatnguoi.net/tracuu1.php/?BienKS={plate}&Xe={type}&token={token}"
 )
@@ -105,7 +105,7 @@ class _TraCuuPhatNguoiParseEngine:
         )
         resolution_offices: list[str] = [
             resolution_offices_tag.text.strip()
-            for resolution_offices_tag in table.select(".form-group:nth-child(n+9)")
+            for resolution_offices_tag in table.select("tr:nth-child(n+9)")
         ]
         if (
             plate is None
