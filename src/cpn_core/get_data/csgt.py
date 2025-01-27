@@ -41,6 +41,7 @@ logger = getLogger(__name__)
 # https://github.com/PyGithub/PyGithub/issues/2300
 
 
+# FIXME: move to exceptions.get_data
 class ResolveCaptchaFail(Exception): ...
 
 

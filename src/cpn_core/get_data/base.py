@@ -33,7 +33,17 @@ class BaseGetDataEngine:
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
         try:
-            return await self._get_data(plate_info)
+            # TODO: No None later
+            violation_details: (
+                tuple[ViolationDetail, ...] | None
+            ) = await self._get_data(plate_info)
+            if not violation_details:
+                logger.info(
+                    "Plate %s - %s: Don't have any violation",
+                    plate_info.plate,
+                    self.api,
+                )
+            return violation_details
         except TimeoutException as e:
             logger.error(
                 "Plate %s - %s: Time out (%ds) getting data from API. %s",
@@ -49,6 +59,7 @@ class BaseGetDataEngine:
                 self.api.value,
                 e,
             )
+        # TODO: catch custom exception in main later
         except Exception as e:
             logger.error(
                 "Plate %s - %s: Error occurs while getting data (internal). %s",
