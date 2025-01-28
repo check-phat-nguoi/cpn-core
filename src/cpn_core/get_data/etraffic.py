@@ -1,7 +1,18 @@
 from datetime import datetime
+from functools import cached_property
 from logging import getLogger
-from typing import Final, Literal, LiteralString, TypedDict, cast, override
+from typing import (
+    Final,
+    Literal,
+    LiteralString,
+    Self,
+    TypeAlias,
+    TypedDict,
+    cast,
+    override,
+)
 
+from cpn_core.exceptions.get_data import ServerLimitError
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
@@ -18,7 +29,8 @@ API_URL = "https://etraffic.gtelict.vn/api/citizen/v2/property/deferred/fines"
 RESPONSE_DATETIME_FORMAT: LiteralString = "%H:%M, %d/%m/%Y"
 
 try:
-    from curl_cffi import CurlError, requests
+    from curl_cffi import CurlError
+    from curl_cffi.requests import Response, Session
     from curl_cffi.requests.exceptions import Timeout
 except ImportError:
     raise RuntimeError(
@@ -49,16 +61,14 @@ class _FoundResponse(TypedDict):
     tag: Literal["found_response"]
     status: int
     message: str
-    data: list[_DataPlateInfoResponse]
+    data: tuple[_DataPlateInfoResponse, ...]
 
 
 class _LimitResponse(TypedDict):
     tag: Literal["limit_response"]
     guid: str
     code: str
-    message: Literal[
-        "Số lượt tìm kiếm thông tin phạt nguội đã đạt giới hạn trong ngày.\nVui lòng thử lại sau"
-    ]
+    message: str
     status: int
     path: str
     method: str
@@ -66,18 +76,14 @@ class _LimitResponse(TypedDict):
     error: str | None
 
 
-_Response = _LimitResponse | _FoundResponse
+_Response: TypeAlias = _LimitResponse | _FoundResponse
 
 
 class _EtrafficGetDataParseEngine:
-    def __init__(
-        self, plate_info: PlateInfo, data: tuple[_DataPlateInfoResponse, ...]
-    ) -> None:
-        self._plate_info = plate_info
-        self._data = data
-        self._violations_details_set = set()
+    def __init__(self, violations: tuple[_DataPlateInfoResponse, ...]) -> None:
+        self._violations: tuple[_DataPlateInfoResponse, ...] = violations
 
-    def _parse_violation(self, data: _DataPlateInfoResponse) -> None:
+    def _parse_violation(self, data: _DataPlateInfoResponse) -> ViolationDetail:
         plate: str = data["licensePlate"]
         date: str = data["violationAt"]
         type: Literal["Ô tô con", "Xe máy", "Xe máy điện"] = data["vehicleType"]
@@ -85,10 +91,11 @@ class _EtrafficGetDataParseEngine:
         location: str = data["handlingAddress"]
         status: str = data["statusType"]
         enforcement_unit: str = data["propertyName"]
-        resolution_offices: tuple[str, ...] = tuple(data["departmentName"])
+        resolution_offices: tuple[str, ...] = (data["departmentName"],)
         violation_detail: ViolationDetail = ViolationDetail(
             plate=plate,
             color=color,
+            # FIXME: @NTNguyen match case O to con?
             type=get_vehicle_enum(type),
             date=datetime.strptime(str(date), RESPONSE_DATETIME_FORMAT),
             location=location,
@@ -97,20 +104,14 @@ class _EtrafficGetDataParseEngine:
             resolution_offices=resolution_offices,
             violation=None,
         )
-        self._violations_details_set.add(violation_detail)
+        return violation_detail
 
-    def parse(self) -> tuple[ViolationDetail, ...] | None:
-        for violations in self._data:
-            self._parse_violation(violations)
-        return tuple(self._violations_details_set)
+    def parse(self) -> tuple[ViolationDetail, ...]:
+        return tuple(self._parse_violation(violation) for violation in self._violations)
 
 
-class EtrafficEngine(BaseGetDataEngine):
-    @property
-    def api(self) -> ApiEnum:
-        return ApiEnum.etraffic_gtelict_vn
-
-    headers = {
+class _EtrafficRequestEngine:
+    token_headers: Final[dict[str, str]] = {
         "Content-Type": "application/json",
         "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
     }
@@ -121,56 +122,81 @@ class EtrafficEngine(BaseGetDataEngine):
         self._citizen_indetify = citizen_indentify
         self._password = password
         self._timeout = timeout
+        self._session_: Session | None = None
+
+    @cached_property
+    def request_headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self._request_token()}",
+            "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
+        }
+
+    @property
+    def _session(self) -> Session:
+        if self._session_ is None:
+            self._session_ = Session(timeout=self._timeout)
+            logger.debug("Created a curl request session")
+        return self._session_
+
+    async def __aenter__(self) -> Self:
+        self._token = self._request_token()
+        return self
+
+    async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
+        if self._session_ is not None:
+            self._session_.close()
 
     def _request_token(self) -> str:
         data: Final[dict[str, str]] = {
             "citizenIndentify": self._citizen_indetify,
             "password": self._password,
         }
-        response = requests.post(
+        # FIXME: await
+        response: Response = self._session.post(
             url=API_TOKEN_URL,
-            headers=self.headers,
+            headers=self.token_headers,
             json=data,
             verify=False,
-            timeout=self._timeout,
         )
-        # FIXME: cast type
+        # FIXME: cast type @NTNguyen
         data_dict = response.json()
         return data_dict["value"]["refreshToken"]
 
-    def _request(self, plate_info: PlateInfo) -> _Response:
-        headers: Final[dict[str, str]] = {
-            "Authorization": f"Bearer {self._request_token()}",
-            "User-Agent": "C08_CD/1.1.8 (com.ots.global.vneTrafic; build:32; iOS 18.2.1) Alamofire/5.10.2",
-        }
+    def request(self, plate_info: PlateInfo) -> _Response:
         params: Final[dict[str, str]] = {
             "licensePlate": plate_info.plate,
             "type": f"{get_vehicle_enum(plate_info.type).value}",
         }
-        response: requests.Response = requests.get(
+        # FIXME: await
+        response: Response = self._session.get(
             url=API_URL,
-            headers=headers,
+            headers=self.request_headers,
             params=params,
-            timeout=self._timeout,
         )
         data: dict = response.json()
         return cast(_Response, data)
 
-    @override
-    async def _get_data(
-        self, plate_info: PlateInfo
-    ) -> tuple[ViolationDetail, ...] | None:
-        plate_detail_typed: _Response = self._request(plate_info)
-        if plate_detail_typed["tag"] == "limit_response":
-            logger.error(
-                "Plate %s - %s. Got limitted error.", plate_info.plate, self.api
-            )
-            return
-        violation_details: tuple[ViolationDetail, ...] | None = (
-            _EtrafficGetDataParseEngine(
-                plate_info=plate_info, data=tuple(plate_detail_typed["data"])
-            ).parse()
+
+class EtrafficEngine(BaseGetDataEngine):
+    @property
+    def api(self) -> ApiEnum:
+        return ApiEnum.etraffic_gtelict_vn
+
+    def __init__(
+        self, citizen_indentify: str, password: str, *, timeout: float = 10
+    ) -> None:
+        self._request_engine: _EtrafficRequestEngine = _EtrafficRequestEngine(
+            citizen_indentify=citizen_indentify, password=password, timeout=timeout
         )
+
+    @override
+    async def _get_data(self, plate_info: PlateInfo) -> tuple[ViolationDetail, ...]:
+        response: _Response = self._request_engine.request(plate_info)
+        if response["tag"] == "limit_response":
+            raise ServerLimitError()
+        violation_details: tuple[ViolationDetail, ...] = _EtrafficGetDataParseEngine(
+            violations=response["data"]
+        ).parse()
         return violation_details
 
     @override
@@ -178,7 +204,16 @@ class EtrafficEngine(BaseGetDataEngine):
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
         try:
-            return await self._get_data(plate_info)
+            violation_details: tuple[ViolationDetail, ...] = await self._get_data(
+                plate_info
+            )
+            if not violation_details:
+                logger.info(
+                    "Plate %s - %s: Don't have any violation",
+                    plate_info.plate,
+                    self.api,
+                )
+            return violation_details
         except Timeout as e:
             logger.error(
                 "Plate %s - %s: Time out (%ds) getting data from API. %s",
@@ -194,6 +229,13 @@ class EtrafficEngine(BaseGetDataEngine):
                 self.api.value,
                 e,
             )
+        except ServerLimitError as e:
+            logger.error(
+                "Plate %s - %s: Got limit error from server. %s",
+                plate_info.plate,
+                self.api,
+                e,
+            )
         except Exception as e:
             logger.error(
                 "Plate %s - %s: Error occurs while getting data (internal). %s",
@@ -201,3 +243,12 @@ class EtrafficEngine(BaseGetDataEngine):
                 self.api.value,
                 e,
             )
+
+    @override
+    async def __aenter__(self) -> Self:
+        await self._request_engine.__aenter__()
+        return self
+
+    @override
+    async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
+        await self._request_engine.__aexit__(exc_type, exc_value, exc_traceback)

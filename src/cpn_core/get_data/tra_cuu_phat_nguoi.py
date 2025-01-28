@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
-from logging import getLogger
 from typing import (
+    Final,
     Literal,
     LiteralString,
     Self,
@@ -14,13 +14,16 @@ from typing import (
 from bs4 import BeautifulSoup, NavigableString, ResultSet, Tag
 
 from cpn_core._utils._request_session_helper import RequestSessionHelper
-from cpn_core.exceptions.get_data import GetTokenError, ParseResponseError
+from cpn_core.exceptions.get_data import (
+    GetTokenError,
+    ParseResponseError,
+    ServerResponseFail,
+)
 from cpn_core.get_data.base import BaseGetDataEngine
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
 from cpn_core.types.vehicle_type import (
-    VehicleTypeEnum,
     get_vehicle_enum,
 )
 
@@ -48,14 +51,9 @@ class _SuccessfulResponse(TypedDict):
 _Response: TypeAlias = _FailedResponse | _SuccessfulResponse
 
 
-logger = getLogger(__name__)
-
-
 class _TraCuuPhatNguoiParseEngine:
-    def __init__(self, plate_info: PlateInfo, html_data: str) -> None:
-        self._vehicle_type: VehicleTypeEnum = get_vehicle_enum(plate_info.type)
+    def __init__(self, html_data: str) -> None:
         self._html_data: str = html_data
-        self._violation_details_set: set[ViolationDetail] = set()
 
     @staticmethod
     def _parse_violation(table: Tag) -> ViolationDetail:
@@ -143,6 +141,10 @@ class _TraCuuPhatNguoiParseEngine:
 
 
 class _TraCuuPhatNguoiRequestEngine(RequestSessionHelper):
+    _headers: Final[dict[str, str]] = {
+        "Referer": "https://tracuuphatnguoi.net/",
+    }
+
     def __init__(self, plate_info: PlateInfo, *, timeout: float = 20) -> None:
         self._plate_info: PlateInfo = plate_info
         RequestSessionHelper.__init__(self, timeout=timeout)
@@ -168,9 +170,6 @@ class _TraCuuPhatNguoiRequestEngine(RequestSessionHelper):
 
     async def request(self) -> _Response:
         phpsessid, csrf = await self._get_phpsessid_and_csrf()
-        headers: dict[str, str] = {
-            "Referer": "https://tracuuphatnguoi.net/",
-        }
         cookies: dict[str, str] = {"PHPSESSID": phpsessid}
         async with self._session.stream(
             "POST",
@@ -179,7 +178,7 @@ class _TraCuuPhatNguoiRequestEngine(RequestSessionHelper):
                 type=get_vehicle_enum(self._plate_info.type).value,
                 token=csrf,
             ),
-            headers=headers,
+            headers=self._headers,
             cookies=cookies,
         ) as response:
             response.raise_for_status()
@@ -208,14 +207,15 @@ class TraCuuPhatNguoiEngine(BaseGetDataEngine):
     async def _get_data(
         self,
         plate_info: PlateInfo,
-    ) -> tuple[ViolationDetail, ...] | None:
+    ) -> tuple[ViolationDetail, ...]:
         response: _Response = await _TraCuuPhatNguoiRequestEngine(
             plate_info=plate_info, timeout=self._timeout
         ).request()
         if response["stt"] == "0":
-            # TODO: Raise server fail in main later
-            return
-        violations: tuple[ViolationDetail, ...] | None = _TraCuuPhatNguoiParseEngine(
-            plate_info=plate_info, html_data=response["html"]
+            raise ServerResponseFail(
+                "Server status return 0, which is failed to get data"
+            )
+        violation_details: tuple[ViolationDetail, ...] = _TraCuuPhatNguoiParseEngine(
+            html_data=response["html"]
         ).parse()
-        return violations
+        return violation_details

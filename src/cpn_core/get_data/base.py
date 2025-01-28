@@ -4,6 +4,11 @@ from typing import Self
 
 from httpx import StreamError, TimeoutException
 
+from cpn_core.exceptions.get_data import (
+    GetTokenError,
+    ParseResponseError,
+    ServerLimitError,
+)
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 from cpn_core.types.api import ApiEnum
@@ -25,18 +30,15 @@ class BaseGetDataEngine:
     async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None: ...
 
     @abstractmethod
-    async def _get_data(
-        self, plate_info: PlateInfo
-    ) -> tuple[ViolationDetail, ...] | None: ...
+    async def _get_data(self, plate_info: PlateInfo) -> tuple[ViolationDetail, ...]: ...
 
     async def get_data(
         self, plate_info: PlateInfo
     ) -> tuple[ViolationDetail, ...] | None:
         try:
-            # TODO: No None later
-            violation_details: (
-                tuple[ViolationDetail, ...] | None
-            ) = await self._get_data(plate_info)
+            violation_details: tuple[ViolationDetail, ...] = await self._get_data(
+                plate_info
+            )
             if not violation_details:
                 logger.info(
                     "Plate %s - %s: Don't have any violation",
@@ -48,7 +50,7 @@ class BaseGetDataEngine:
             logger.error(
                 "Plate %s - %s: Time out (%ds) getting data from API. %s",
                 plate_info.plate,
-                self.api.value,
+                self.api,
                 self._timeout,
                 e,
             )
@@ -56,14 +58,34 @@ class BaseGetDataEngine:
             logger.error(
                 "Plate %s - %s: Error occured. %s",
                 plate_info.plate,
-                self.api.value,
+                self.api,
                 e,
             )
-        # TODO: catch custom exception in main later
+        except GetTokenError as e:
+            logger.error(
+                "Plate %s - %s: Cannot get token. %s",
+                plate_info.plate,
+                self.api,
+                e,
+            )
+        except ServerLimitError as e:
+            logger.error(
+                "Plate %s - %s: Got limit error from server. %s",
+                plate_info.plate,
+                self.api,
+                e,
+            )
+        except ParseResponseError as e:
+            logger.error(
+                "Plate %s - %s: Error occurred while parsing response. %s",
+                plate_info.plate,
+                self.api,
+                e,
+            )
         except Exception as e:
             logger.error(
                 "Plate %s - %s: Error occurs while getting data (internal). %s",
                 plate_info.plate,
-                self.api.value,
+                self.api,
                 e,
             )
