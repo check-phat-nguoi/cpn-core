@@ -1,14 +1,15 @@
 from datetime import datetime
 from typing import Literal, LiteralString, override
 
-from pydantic import BaseModel
+from attr import define
 
 from cpn_core._constants.datetime import DATETIME_FORMAT_12, DATETIME_FORMAT_24
 from cpn_core._utils._gen_map_search_url import _gen_map_search_url
 from cpn_core.types.vehicle_type import VehicleTypeEnum, get_vehicle_str_vie
 
 
-class ViolationDetail(BaseModel):
+@define(slots=True)
+class ViolationDetail:
     plate: str | None
     color: str | None
     type: VehicleTypeEnum | None
@@ -136,7 +137,7 @@ class ViolationDetail(BaseModel):
         return f"{header}\n{message}".strip()
 
     @override
-    def __hash__(self):
+    def __hash__(self) -> int:
         return (
             hash(self.plate) + hash(self.color) + hash(self.date) + hash(self.location)
         )

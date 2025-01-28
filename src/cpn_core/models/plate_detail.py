@@ -1,34 +1,27 @@
 from datetime import datetime
+from functools import cached_property
 from typing import Any, Literal, LiteralString, override
 
-from pydantic import BaseModel, Field, computed_field
+from attr import define, field
 
 from cpn_core._constants.datetime import DATETIME_FORMAT_12, DATETIME_FORMAT_24
 from cpn_core.models.plate_info import PlateInfo
 from cpn_core.models.violation_detail import ViolationDetail
 
 
-class PlateDetail(BaseModel):
-    plate_info: PlateInfo = Field(
-        description="Thông tin biển số phương tiện",
-    )
-    violations: tuple[ViolationDetail, ...] | None = Field(
-        description="Danh sách các vi phạm của 1 biển xe",
-    )
-    date_time: datetime = Field(
-        description="Thời gian lấy thông tin",
-        default_factory=datetime.now,
-    )
+@define(slots=True)
+class PlateDetail:
+    plate_info: PlateInfo
+    violations: tuple[ViolationDetail, ...] | None
+    date_time: datetime = field(factory=datetime.now)
 
-    @computed_field
-    @property
+    @cached_property
     def total_fines(self) -> int:
         if self.violations is None:
             return -1
         return len(self.violations)
 
-    @computed_field
-    @property
+    @cached_property
     def total_peding_fines(self) -> int:
         if self.violations is None:
             return -1
