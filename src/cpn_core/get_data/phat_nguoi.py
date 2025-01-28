@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from logging import getLogger
 from re import DOTALL
-from typing import LiteralString, Self, override
+from typing import LiteralString, override
 
 from bs4 import BeautifulSoup, ResultSet, Tag
 
@@ -167,7 +167,7 @@ class _PhatNguoiRequestEngine(RequestSessionHelper):
         return html_data.decode("utf-8")
 
 
-class PhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
+class PhatNguoiEngine(BaseGetDataEngine):
     @property
     def api(self) -> ApiEnum:
         return ApiEnum.phatnguoi_vn
@@ -184,11 +184,3 @@ class PhatNguoiEngine(BaseGetDataEngine, RequestSessionHelper):
             html_data=html_data,
         ).parse()
         return violation_details
-
-    @override
-    async def __aenter__(self) -> Self:
-        return self
-
-    @override
-    async def __aexit__(self, exc_type, exc_value, exc_traceback) -> None:
-        await RequestSessionHelper.__aexit__(self, exc_type, exc_value, exc_traceback)
